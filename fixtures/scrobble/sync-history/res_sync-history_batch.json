@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "name": "Sync history — batch response",
+    "description": "Ответ batch-импорта: added counts + not_found для неизвестного фильма.",
+    "category": "sync-history",
+    "action": "sync"
+  },
+  "payload": {
+    "added": {
+      "movies": 1,
+      "shows": 0,
+      "episodes": 3
+    },
+    "not_found": {
+      "movies": [
+        {
+          "title": "Unknown Movie",
+          "ids": {
+            "imdb": "tt0000000"
+          }
+        }
+      ],
+      "shows": [],
+      "episodes": []
+    }
+  }
+}

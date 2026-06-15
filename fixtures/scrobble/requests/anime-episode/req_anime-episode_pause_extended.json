@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "name": "Anime episode — pause, extended",
+    "description": "Аниме-эпизод на паузе: original_title, dub_team, audio_language.",
+    "category": "anime-episode",
+    "action": "pause",
+    "level": "extended",
+    "endpoint": "/scrobble/pause"
+  },
+  "payload": {
+    "show": {
+      "title": "One Piece",
+      "original_title": "ワンピース",
+      "year": 1999,
+      "ids": {
+        "mal": 21,
+        "anidb": 69,
+        "imdb": "tt0388629",
+        "tvdb": "81797",
+        "simkl": 37088
+      }
+    },
+    "episode": {
+      "season": 1,
+      "number": 1050,
+      "title": "The Log That Carries the Will of a Man",
+      "runtime": 24,
+      "metadata": {
+        "audio_language": "ja"
+      }
+    },
+    "progress": 50.0,
+    "source_app": "plex",
+    "dub_team": "AniLibria"
+  }
+}

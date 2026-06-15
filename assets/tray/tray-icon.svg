@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#CC0000" stroke-linecap="round" stroke-linejoin="round">
+    <!-- TV body (thick rounded-rect frame) -->
+    <rect x="34" y="190" width="444" height="284" rx="62" stroke-width="40"/>
+    <!-- antennas -->
+    <path d="M256 156 L150 58" stroke-width="26"/>
+    <path d="M256 156 L362 58" stroke-width="26"/>
+  </g>
+  <!-- antenna knobs -->
+  <circle cx="146" cy="54" r="20" fill="#CC0000"/>
+  <circle cx="366" cy="54" r="20" fill="#CC0000"/>
+  <!-- antenna mount (rounded trapezoid on top of TV) -->
+  <path d="M196 192 L214 158 Q221 146 235 146 L277 146 Q291 146 298 158 L316 192 Z" fill="#CC0000"/>
+</svg>

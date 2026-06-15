@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "name": "Sync history — batch request",
+    "description": "Batch-импорт: 1 фильм + 1 шоу с эпизодами, watched_at для каждого.",
+    "category": "sync-history",
+    "action": "sync",
+    "endpoint": "/sync/history"
+  },
+  "payload": {
+    "movies": [
+      {
+        "title": "Oppenheimer",
+        "year": 2023,
+        "ids": {
+          "imdb": "tt15398776",
+          "tmdb": "872585"
+        },
+        "watched_at": "2024-07-20T22:15:00.000Z"
+      }
+    ],
+    "shows": [
+      {
+        "title": "Breaking Bad",
+        "year": 2008,
+        "ids": {
+          "imdb": "tt0903747",
+          "tmdb": "1396",
+          "tvdb": "81189"
+        },
+        "seasons": [
+          {
+            "number": 3,
+            "episodes": [
+              { "number": 1, "watched_at": "2024-07-18T20:00:00.000Z" },
+              { "number": 2, "watched_at": "2024-07-19T20:00:00.000Z" },
+              { "number": 3, "watched_at": "2024-07-20T20:00:00.000Z" }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

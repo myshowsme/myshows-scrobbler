@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "name": "Movie — start, single ID only",
+    "description": "Minimum viable: только imdb ID без title/year. Проверка lookup-цепочки.",
+    "category": "movie",
+    "action": "start",
+    "level": "minimal",
+    "endpoint": "/scrobble/start"
+  },
+  "payload": {
+    "movie": {
+      "ids": {
+        "imdb": "tt15398776"
+      }
+    },
+    "progress": 0
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "rules": {
+    "style/noUnusedVars": "off",
+    "style/noVar": "off"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "name": "Anime episode — scrobble response",
+    "description": "Ответ scrobble аниме-эпизода: IDs с mal/anidb в ответе.",
+    "category": "anime-episode",
+    "action": "scrobble"
+  },
+  "payload": {
+    "id": 501234,
+    "action": "scrobble",
+    "progress": 92.5,
+    "watched_at": "2024-07-20T20:30:00.000Z",
+    "show": {
+      "title": "One Piece",
+      "year": 1999,
+      "ids": {
+        "mal": 21,
+        "anidb": 69,
+        "imdb": "tt0388629",
+        "tmdb": "37854",
+        "tvdb": "81797",
+        "simkl": 37088,
+        "slug": "one-piece"
+      }
+    },
+    "episode": {
+      "season": 1,
+      "number": 1050,
+      "title": "The Log That Carries the Will of a Man",
+      "ids": {
+        "tvdb": "9456789",
+        "tmdb": "4012345"
+      }
+    }
+  }
+}

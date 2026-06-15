@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "name": "Movie — stop >=80%, extended",
+    "description": "Финиш фильма с rating и source_app. MyShows-расширенные поля.",
+    "category": "movie",
+    "action": "stop",
+    "level": "extended",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "movie": {
+      "title": "Oppenheimer",
+      "year": 2023,
+      "ids": {
+        "imdb": "tt15398776",
+        "tmdb": "872585",
+        "trakt": 804095,
+        "simkl": 1517535
+      }
+    },
+    "progress": 95.3,
+    "source_app": "plex",
+    "rating": 9,
+    "app_version": "2.0.0",
+    "app_date": "2024-07-20"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "name": "Anime movie — stop >=80%, full",
+    "description": "Аниме-фильм, полный: all IDs, metadata, dub_team, audio_language=ja.",
+    "category": "anime-movie",
+    "action": "stop",
+    "level": "full",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "movie": {
+      "title": "Your Name.",
+      "original_title": "君の名は。",
+      "year": 2016,
+      "ids": {
+        "myshows": 55555,
+        "imdb": "tt5311514",
+        "tmdb": "372058",
+        "trakt": 214757,
+        "simkl": 792498,
+        "mal": 32281,
+        "anidb": 11829,
+        "slug": "your-name-2016"
+      },
+      "runtime": 106,
+      "content_rating": "PG-13",
+      "metadata": {
+        "media_type": "bluray",
+        "resolution": "uhd_4k",
+        "hdr": "hdr10",
+        "audio": "dts_ma",
+        "audio_channels": "5.1",
+        "audio_language": "ja",
+        "3d": false
+      }
+    },
+    "progress": 99.2,
+    "source_app": "kodi",
+    "dub_team": "AniLibria",
+    "rating": 10,
+    "app_version": "2.0.0",
+    "app_date": "2024-07-20"
+  }
+}

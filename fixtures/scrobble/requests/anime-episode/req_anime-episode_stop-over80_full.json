@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "name": "Anime episode — stop >=80%, full",
+    "description": "Аниме-эпизод, полный: все IDs, metadata, dub_team, rating.",
+    "category": "anime-episode",
+    "action": "stop",
+    "level": "full",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "show": {
+      "title": "One Piece",
+      "original_title": "ワンピース",
+      "year": 1999,
+      "ids": {
+        "myshows": 42,
+        "mal": 21,
+        "anidb": 69,
+        "imdb": "tt0388629",
+        "tmdb": "37854",
+        "tvdb": "81797",
+        "trakt": 999,
+        "simkl": 37088,
+        "slug": "one-piece"
+      },
+      "content_rating": "TV-14"
+    },
+    "episode": {
+      "season": 1,
+      "number": 1050,
+      "title": "The Log That Carries the Will of a Man",
+      "ids": {
+        "tvdb": "9456789",
+        "tmdb": "4012345",
+        "trakt": 876543
+      },
+      "runtime": 24,
+      "metadata": {
+        "media_type": "digital",
+        "resolution": "hd_1080p",
+        "audio": "aac",
+        "audio_channels": "2.0",
+        "audio_language": "ja",
+        "3d": false
+      }
+    },
+    "progress": 92.5,
+    "source_app": "plex",
+    "dub_team": "AniLibria",
+    "rating": 8,
+    "app_version": "2.0.0",
+    "app_date": "2024-07-20"
+  }
+}

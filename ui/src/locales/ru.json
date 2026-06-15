@@ -1,0 +1,218 @@
+{
+  "header": {
+    "lang": {
+      "ru": "RU",
+      "en": "EN",
+      "aria": "Язык"
+    },
+    "status": {
+      "connected": "подключено",
+      "disconnected": "отключено"
+    },
+    "token": {
+      "placeholder": "Токен MyShows",
+      "connectedAs": "подключено как {name}",
+      "checking": "проверка…",
+      "invalid": "неверный токен"
+    }
+  },
+  "hero": {
+    "scrobbledAgo": "отмечено {time} назад",
+    "progressLabel": "прогресс",
+    "intercept": "перехват",
+    "live": "live",
+    "subtitle": {
+      "episode": "Эпизод",
+      "movie": "Фильм",
+      "season": "Сезон {n}",
+      "episodeN": "Эпизод {n}"
+    },
+    "failed": "ошибка",
+    "setup": {
+      "title": "Давайте всё настроим",
+      "steps": {
+        "token": {
+          "title": "Вставьте токен MyShows",
+          "where": "где взять?"
+        },
+        "source": {
+          "title": "Включите источник",
+          "hint": "проще всего — Плееры, они не требуют настройки"
+        },
+        "playback": {
+          "title": "Запустите фильм или серию"
+        }
+      }
+    }
+  },
+  "sources": {
+    "title": "Источники",
+    "notConfigured": "не настроен",
+    "aria": {
+      "enable": "Включить {source}"
+    },
+    "interceptOnly": {
+      "label": "Только перехват",
+      "hint": "события логируются, но не отправляются в MyShows",
+      "lockedHint": "задано CLI-флагом, для изменения перезапустите сервер"
+    },
+    "form": {
+      "url": "URL",
+      "token": "Токен",
+      "reveal": "показать",
+      "hide": "скрыть"
+    },
+    "name": {
+      "player": "Плееры"
+    },
+    "player": {
+      "subtitle": "VLC, MPC, mpv и другие на этом компьютере",
+      "hint": "Ловит запущенные на этой же машине VLC, MPV, MPC, IINA, Infuse, QuickTime и стандартные плееры Windows. На macOS точная позиция и длительность для VLC и QuickTime читаются напрямую через AppleScript; остальные плееры используют встроенный `ffprobe` и оценку по uptime процесса."
+    },
+    "status": {
+      "checking": "проверка…",
+      "ok": "подключено",
+      "error": "ошибка: {message}",
+      "errorByCode": {
+        "auth": "Неверный токен — проверьте, что вы скопировали его целиком",
+        "network": "Сервер не отвечает — проверьте, что он запущен и доступен",
+        "unreachable": "Не удаётся подключиться к серверу по этому адресу"
+      },
+      "idle": "включите источник для проверки"
+    },
+    "findToken": {
+      "button": "Найти токен",
+      "looking": "поиск…",
+      "failed": {
+        "pms-not-installed": "локальный Plex Media Server не найден",
+        "permission-denied": "нет доступа к настройкам плеера",
+        "not-signed-in": "Plex Media Server не залогинен в plex.tv",
+        "parse-error": "не удалось прочитать настройки плеера",
+        "kodi-not-installed": "Kodi не найден на этом компьютере",
+        "webserver-disabled": "веб-интерфейс Kodi выключен (Settings → Services → Control)",
+        "unknown": "Не удалось найти токен"
+      }
+    },
+    "quickConnect": {
+      "button": "Подключить через Quick Connect",
+      "initiating": "запрос кода…",
+      "retry": "Повторить",
+      "cancel": "Отмена",
+      "instruction": "Откройте {source} в браузере (веб-интерфейс сервера) → ваш аватар → Quick Connect → введите код:",
+      "failed": {
+        "no-url": "Сначала укажите URL сервера",
+        "unreachable": "Сервер недоступен",
+        "disabled": "Quick Connect выключен на сервере (Dashboard → Quick Connect)",
+        "expired": "Код истёк, попробуйте ещё раз",
+        "timeout": "Время ожидания истекло",
+        "unknown": "Не удалось подключиться"
+      }
+    },
+    "signIn": {
+      "button": "Войти в {source}",
+      "username": "Логин",
+      "password": "Пароль",
+      "submit": "Войти",
+      "signingIn": "Вход…",
+      "cancel": "Отмена",
+      "failed": {
+        "no-url": "Сначала укажите URL сервера",
+        "unreachable": "Сервер недоступен",
+        "invalid-credentials": "Неверный логин или пароль",
+        "unknown": "Не удалось войти"
+      }
+    }
+  },
+  "setup": {
+    "title": "Настройка плееров",
+    "subtitle": "Включите локальный API плеера, чтобы MyShows читал точную позицию",
+    "status": {
+      "unsupported": "недоступно в этой ОС",
+      "enabled": "включено",
+      "disabled": "не включено"
+    },
+    "button": {
+      "enable": "Включить",
+      "disable": "Отключить",
+      "working": "выполняется…"
+    },
+    "modal": {
+      "title": "Включить {name}?",
+      "intro": "Будут изменены эти настройки. Обратимо — позже можно Отключить.",
+      "confirm": "Включить",
+      "cancel": "Отмена",
+      "absent": "(не задано)"
+    },
+    "result": {
+      "restart": "Перезапустите плеер, чтобы изменение вступило в силу.",
+      "verified": "Подключено — API плеера доступен.",
+      "applied": "Применено. Перезапустите плеер — затем подключится.",
+      "restored": "Отключено, прежняя настройка восстановлена.",
+      "forceRestored": "Отключено. Прежние значения не сохранились — настройки плеера очищены до значений по умолчанию.",
+      "error": "Ошибка: {message}"
+    }
+  },
+  "events": {
+    "title": "События",
+    "verbose": "подробно",
+    "follow": "следить",
+    "empty": "Событий пока нет — они появятся здесь по мере поступления",
+    "type": {
+      "scr": "SCR",
+      "log": "LOG"
+    },
+    "skipped": "пропущено (ниже порога)"
+  },
+  "tester": {
+    "title": "Тестер",
+    "devOnly": "только dev",
+    "reload": "обновить",
+    "loading": "загрузка фикстур…",
+    "emptyCategory": "в этой категории нет фикстур",
+    "endpointLabel": "эндпоинт",
+    "category": {
+      "movie": "Фильм",
+      "episode": "Эпизод",
+      "anime-movie": "Аниме-фильм",
+      "anime-episode": "Аниме-эпизод"
+    },
+    "buttons": {
+      "editJson": "Редактировать JSON",
+      "close": "Закрыть",
+      "send": "Отправить"
+    },
+    "errors": {
+      "invalidJson": "Невалидный JSON"
+    }
+  },
+  "common": {
+    "now": "сейчас",
+    "minAgo": "{n} мин назад",
+    "hourAgo": "{n} ч назад",
+    "dayAgo": "{n} д назад"
+  },
+  "config": {
+    "editor": {
+      "open": "Редактировать конфиг",
+      "title": "Редактирование конфига",
+      "hint": "Весь конфиг в JSON. Сохранение перезаписывает файл конфига, проверяет myshows_url и перезагружает источники. Для продвинутой настройки.",
+      "fileLabel": "Файл:",
+      "cancel": "Отмена",
+      "save": "Сохранить",
+      "saving": "Сохранение…",
+      "invalidJson": "Некорректный JSON",
+      "sourcesRequired": "\"sources\" должен быть массивом",
+      "saveFailed": "Не удалось сохранить конфиг"
+    }
+  },
+  "update": {
+    "available": "Доступна новая версия {version}",
+    "install": "Обновить",
+    "downloading": "Загрузка…",
+    "skip": "Пропустить эту версию",
+    "indicator": "Доступно обновление"
+  },
+  "errors": {
+    "backendUnavailable": "Бэкенд скробблера недоступен на порту {port}"
+  }
+}

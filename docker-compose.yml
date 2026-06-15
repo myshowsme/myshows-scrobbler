@@ -1,0 +1,40 @@
+services:
+  myshows-scrobbler:
+    build: .
+    container_name: myshows-scrobbler
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      # Already pinned to "production" in the Dockerfile; this is just a
+      # reminder that dev-only routes (Tester / fixtures API) are gated
+      # off by NODE_ENV and shouldn't be relaxed here.
+      - NODE_ENV=production
+
+      # UI toggle. Default true (LAN / homelab use). Set to false on public
+      # hosts that put the API behind a reverse proxy with auth, or on
+      # headless servers that only need the polling loop.
+      - ENABLE_UI=true
+
+      # Optional: bind only to a specific interface inside the container.
+      # - HOST=127.0.0.1
+
+      # Optional: change the in-container port.
+      # - PORT=3000
+
+    volumes:
+      # Runtime data — config.json, snapshots/, audit log. Keep this
+      # outside the container so config survives image rebuilds and is
+      # editable from the host.
+      - ./data:/data
+
+      # OPTIONAL: enable Plex token auto-discovery when both Plex Media
+      # Server and the scrobbler run on the same host. The scrobbler probes
+      # well-known paths (see src/utils/plex-token-discovery.ts); mount the
+      # PMS config dir to the SAME path inside the container so probing
+      # finds it transparently. Uncomment the line that matches your setup:
+      #
+      # - /opt/plex/config:/opt/plex/config:ro              # LinuxServer.io
+      # - /mnt/user/appdata/plex:/mnt/user/appdata/plex:ro  # unRAID
+      # - /volume1/Plex:/volume1/Plex:ro                    # Synology DSM
+      # - /var/lib/plexmediaserver:/var/lib/plexmediaserver:ro  # Debian/RPM pkg

@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "name": "Episode — checkin, Simkl style",
+    "description": "Simkl checkin-паттерн: без progress, только show+episode.",
+    "category": "episode",
+    "action": "checkin",
+    "level": "extended",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "show": {
+      "title": "Breaking Bad",
+      "ids": {
+        "simkl": 39185,
+        "imdb": "tt0903747"
+      }
+    },
+    "episode": {
+      "season": 3,
+      "number": 1
+    }
+  }
+}

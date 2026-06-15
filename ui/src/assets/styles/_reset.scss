@@ -1,0 +1,60 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+p,
+li,
+figure,
+figcaption,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+ul[class],
+ol[class] {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+}
+
+input,
+button,
+textarea,
+select {
+  font-family: inherit;
+}
+
+table {
+  border-spacing: 0;
+}
+
+button {
+  color: var(--color-text);
+  touch-action: manipulation;
+  cursor: pointer;
+}

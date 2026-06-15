@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "name": "Episode — start, no show object (Trakt pattern)",
+    "description": "Только episode.ids без show — Trakt разрешает такой паттерн.",
+    "category": "episode",
+    "action": "start",
+    "level": "minimal",
+    "endpoint": "/scrobble/start"
+  },
+  "payload": {
+    "episode": {
+      "ids": {
+        "imdb": "tt1232246",
+        "trakt": 49681
+      }
+    },
+    "progress": 0
+  }
+}

@@ -1,0 +1,95 @@
+name: Release
+
+# Builds the desktop installers for every platform and uploads them — together
+# with the electron-updater manifests (latest*.yml) — to a GitHub Release.
+#
+# Trigger: push a version tag that matches package.json "version", e.g.
+#   git tag v2.1.0 && git push origin v2.1.0
+#
+# electron-builder publishes to a DRAFT release (provider: github in
+# package.json). Review the draft on GitHub, then hit "Publish" — only then do
+# clients see the update.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # electron-builder's "find or create draft release" is racy: the three matrix
+  # jobs start simultaneously, none sees a draft yet, and each creates its own —
+  # yielding duplicate releases with split assets. Pre-create the draft here so
+  # every build job finds the same one.
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+                 --draft --title "$GITHUB_REF_NAME" --notes ""
+
+  release:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # electron-builder downloads a per-platform Electron during packaging;
+      # cache it so re-runs don't re-download ~100 MB.
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (server + UI + electron bundle)
+        run: pnpm run build:all
+
+      - name: Build & publish installers
+        run: node scripts/run-electron-builder.mjs --publish always
+        env:
+          # Lets electron-builder create/update the draft release in this repo.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ── macOS signing + notarization (optional) ──────────────────────
+          # Required for auto-update on macOS (Squirrel.Mac verifies the
+          # signature) and to avoid the Gatekeeper warning. To enable: add the
+          # secrets below, remove `mac.identity: null` from package.json, and
+          # uncomment these lines.
+          # CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "name": "Episode — scrobble response",
+    "description": "Ответ на stop >=80%: action=scrobble, watched_at заполнен.",
+    "category": "episode",
+    "action": "scrobble"
+  },
+  "payload": {
+    "id": 934522,
+    "action": "scrobble",
+    "progress": 92.0,
+    "watched_at": "2024-07-20T21:45:00.000Z",
+    "show": {
+      "title": "Breaking Bad",
+      "year": 2008,
+      "ids": {
+        "imdb": "tt0903747",
+        "tmdb": "1396",
+        "tvdb": "81189",
+        "trakt": 1388,
+        "slug": "breaking-bad"
+      }
+    },
+    "episode": {
+      "season": 3,
+      "number": 1,
+      "title": "No Mas",
+      "ids": {
+        "imdb": "tt1232246",
+        "tmdb": "62126",
+        "tvdb": "1088061",
+        "trakt": 49681
+      }
+    }
+  }
+}

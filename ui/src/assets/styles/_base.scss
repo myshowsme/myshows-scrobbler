@@ -1,0 +1,26 @@
+body {
+  font-family: var(--font-base);
+  background: var(--color-bg);
+  min-height: 100vh;
+  color: var(--color-text);
+  font-size: 1rem;
+  text-size-adjust: none;
+  overflow-anchor: none;
+}
+
+.app-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+// Collapse all transitions/animations for users who asked the OS to reduce
+// motion. One global guard instead of per-component @media blocks.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

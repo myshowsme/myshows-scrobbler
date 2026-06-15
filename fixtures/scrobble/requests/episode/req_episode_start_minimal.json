@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "name": "Episode — start, minimal",
+    "description": "Минимальный эпизод сериала: show + episode, progress=0.",
+    "category": "episode",
+    "action": "start",
+    "level": "minimal",
+    "endpoint": "/scrobble/start"
+  },
+  "payload": {
+    "show": {
+      "title": "Breaking Bad",
+      "year": 2008,
+      "ids": {
+        "imdb": "tt0903747",
+        "tmdb": "1396",
+        "tvdb": "81189"
+      }
+    },
+    "episode": {
+      "season": 3,
+      "number": 1
+    },
+    "progress": 0
+  }
+}

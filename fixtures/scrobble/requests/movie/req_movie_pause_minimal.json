@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "name": "Movie — pause, minimal",
+    "description": "Пауза фильма на ~40%. Базовый Trakt/Simkl payload.",
+    "category": "movie",
+    "action": "pause",
+    "level": "minimal",
+    "endpoint": "/scrobble/pause"
+  },
+  "payload": {
+    "movie": {
+      "title": "Oppenheimer",
+      "year": 2023,
+      "ids": {
+        "imdb": "tt15398776",
+        "tmdb": "872585"
+      }
+    },
+    "progress": 40.2
+  }
+}

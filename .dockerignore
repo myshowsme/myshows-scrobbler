@@ -1,0 +1,50 @@
+# Build artefacts — let the image build them from scratch.
+node_modules
+dist
+.cache
+coverage
+
+# Sources we deliberately don't ship in the production image.
+# fixtures/ feeds the Tester (dev-only). Even with NODE_ENV=production
+# gating the dev API, the files would still be present in /app — no
+# reason to ship them.
+fixtures
+tests
+
+# Internal documentation has no runtime function and routinely contains
+# notes that aren't meant for public viewing.
+docs
+
+# Editor / tool state.
+.claude
+.vscode
+.idea
+.cursor
+.windsurf
+*.swp
+
+# Version control. .git itself is huge and irrelevant at runtime; .github
+# contains CI configs that don't help inside a container.
+.git
+.gitignore
+.gitattributes
+.github
+
+# Runtime data lives in a bind-mounted volume (see docker-compose.yml).
+# Shipping the dev `data/config.json` would leak whatever tokens the
+# developer has in there.
+data
+
+# Misc.
+*.log
+*.tsbuildinfo
+.npmrc
+.env
+.env.*
+README.md.bak
+
+# The Dockerfile and compose-side files aren't needed *inside* the image.
+# (docker-entrypoint.sh IS — it's COPY'd into /usr/local/bin/ — so keep it.)
+Dockerfile
+docker-compose.yml
+.dockerignore

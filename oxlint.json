@@ -1,0 +1,10 @@
+{
+  "formatter": {
+    "semicolons": false,
+    "singleQuote": true,
+    "quoteStyle": "single",
+    "lineEnding": "lf",
+    "indentWidth": 2,
+    "indentType": "space"
+  }
+}

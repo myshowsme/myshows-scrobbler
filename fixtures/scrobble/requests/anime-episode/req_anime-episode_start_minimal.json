@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "name": "Anime episode — start, minimal",
+    "description": "Аниме-эпизод: show с mal+anidb IDs, минимальный набор.",
+    "category": "anime-episode",
+    "action": "start",
+    "level": "minimal",
+    "endpoint": "/scrobble/start"
+  },
+  "payload": {
+    "show": {
+      "title": "One Piece",
+      "year": 1999,
+      "ids": {
+        "mal": 21,
+        "anidb": 69,
+        "imdb": "tt0388629",
+        "tvdb": "81797"
+      }
+    },
+    "episode": {
+      "season": 1,
+      "number": 1050
+    },
+    "progress": 0
+  }
+}

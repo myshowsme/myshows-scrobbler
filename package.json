@@ -1,0 +1,178 @@
+{
+  "name": "myshows-scrobbler",
+  "version": "0.0.1",
+  "description": "Universal media scrobbler for MyShows (Plex, Emby, Jellyfin, Kodi)",
+  "keywords": [
+    "emby",
+    "jellyfin",
+    "kodi",
+    "myshows",
+    "plex",
+    "scrobble"
+  ],
+  "homepage": "https://github.com/myshowsme/myshows-scrobbler#readme",
+  "bugs": {
+    "url": "https://github.com/myshowsme/myshows-scrobbler/issues"
+  },
+  "license": "MIT",
+  "author": "MyShows",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/myshowsme/myshows-scrobbler.git"
+  },
+  "type": "module",
+  "main": "dist/server/index.mjs",
+  "scripts": {
+    "dev": "portless --name myshows-scrobbler --script dev:server",
+    "dev:server": "tsx watch src/index.ts",
+    "dev:server:direct": "cross-env PORT=5172 tsx watch src/index.ts",
+    "dev:ui": "vp dev ui --port 5173",
+    "dev:ui:server": "vp dev ui",
+    "dev:ui:backend": "cross-env SCROBBLER_BACKEND_PORT=5172 vp run dev:ui",
+    "dev:ui:portless": "cross-env SCROBBLER_BACKEND_PORT=5172 portless --name myshows-scrobbler-ui --script dev:ui:server",
+    "dev:all": "concurrently --kill-others-on-fail --names backend,ui \"vp run dev:server:direct\" \"vp run dev:ui:backend\"",
+    "build": "vp pack",
+    "build:ui": "vp build ui",
+    "build:all": "vp run build && vp run build:ui",
+    "build:electron": "vp run build:all && node scripts/run-electron-builder.mjs",
+    "build:electron:dir": "vp run build:all && node scripts/run-electron-builder.mjs --dir",
+    "electron": "vp run build:all && electron dist/electron/electron.mjs",
+    "start": "node dist/server/index.mjs",
+    "start:ui": "node dist/server/index.mjs --ui",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "release": "node scripts/release.mjs",
+    "generate:ui-types": "node scripts/generate-ui-types.mjs",
+    "check:ui-types": "node scripts/generate-ui-types.mjs --check",
+    "pretest:e2e": "vp run build:all",
+    "test:e2e": "playwright test",
+    "test:all": "vp run test && vp run test:e2e",
+    "prepare": "vp config"
+  },
+  "dependencies": {
+    "@fastify/websocket": "11.2.0",
+    "@ffprobe-installer/ffprobe": "2.1.2",
+    "electron-updater": "6.8.9",
+    "fastify": "5.8.5",
+    "guessit-js": "4.0.0",
+    "koffi": "3.0.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "@types/node": "25.9.3",
+    "@types/ws": "8.18.1",
+    "@vitejs/plugin-vue": "6.0.7",
+    "@vitest/ui": "4.1.8",
+    "concurrently": "10.0.3",
+    "cross-env": "10.1.0",
+    "electron": "41.7.1",
+    "electron-builder": "26.15.3",
+    "portless": "0.14.0",
+    "sass": "1.101.0",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.21",
+    "vite-plus": "0.1.24",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.21",
+    "vue": "3.5.38",
+    "vue-i18n": "11.4.5",
+    "vue-tsc": "3.3.5"
+  },
+  "optionalDependencies": {
+    "@fastify/static": "9.1.3"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "packageManager": "pnpm@11.5.3+sha512.7ac1c919341c213a34dc0d02afb7143c5c26ac26ee8c4782deea821b8ac64d2134a081fd8941dae6e29bbb48f58dfc2b7fbceeccc07cb2f09d219d342a4969ed",
+  "build": {
+    "appId": "me.myshows.scrobbler",
+    "productName": "MyShows Scrobbler",
+    "directories": {
+      "output": "release"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "myshowsme",
+      "repo": "myshows-scrobbler"
+    },
+    "files": [
+      "dist/electron/**",
+      "dist/ui/**",
+      "package.json",
+      "!node_modules/**",
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**",
+      "node_modules/@ffprobe-installer/**"
+    ],
+    "afterPack": "scripts/after-pack.cjs",
+    "extraMetadata": {
+      "main": "dist/electron/electron.mjs"
+    },
+    "extraResources": [
+      {
+        "from": "assets/tray/tray-icon.png",
+        "to": "tray-icon.png"
+      },
+      {
+        "from": "assets/tray/tray-icon@2x.png",
+        "to": "tray-icon@2x.png"
+      },
+      {
+        "from": "assets/tray/trayTemplate.png",
+        "to": "trayTemplate.png"
+      },
+      {
+        "from": "assets/tray/trayTemplate@2x.png",
+        "to": "trayTemplate@2x.png"
+      },
+      {
+        "from": "assets/tray/app-icon.png",
+        "to": "app-icon.png"
+      },
+      {
+        "from": "scripts/macos-osa-probe.js",
+        "to": "macos-osa-probe.js"
+      },
+      {
+        "from": "scripts/windows-smtc-probe.ps1",
+        "to": "windows-smtc-probe.ps1"
+      },
+      {
+        "from": "scripts/windows-resolve-handle-path.ps1",
+        "to": "windows-resolve-handle-path.ps1"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/koffi/**",
+      "node_modules/@koromix/**",
+      "node_modules/@ffprobe-installer/**"
+    ],
+    "npmRebuild": false,
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "identity": null,
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "category": "AudioVideo",
+      "icon": "build/icon.png",
+      "target": [
+        "AppImage"
+      ]
+    }
+  }
+}

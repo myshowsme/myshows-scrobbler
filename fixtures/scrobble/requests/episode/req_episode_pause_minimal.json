@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "name": "Episode — pause, minimal",
+    "description": "Пауза эпизода на ~30%.",
+    "category": "episode",
+    "action": "pause",
+    "level": "minimal",
+    "endpoint": "/scrobble/pause"
+  },
+  "payload": {
+    "show": {
+      "title": "Breaking Bad",
+      "year": 2008,
+      "ids": {
+        "imdb": "tt0903747",
+        "tmdb": "1396",
+        "tvdb": "81189"
+      }
+    },
+    "episode": {
+      "season": 3,
+      "number": 1
+    },
+    "progress": 30.5
+  }
+}

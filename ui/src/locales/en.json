@@ -1,0 +1,218 @@
+{
+  "header": {
+    "lang": {
+      "ru": "RU",
+      "en": "EN",
+      "aria": "Language"
+    },
+    "status": {
+      "connected": "connected",
+      "disconnected": "disconnected"
+    },
+    "token": {
+      "placeholder": "MyShows token",
+      "connectedAs": "connected as {name}",
+      "checking": "checking…",
+      "invalid": "invalid token"
+    }
+  },
+  "hero": {
+    "scrobbledAgo": "scrobbled {time} ago",
+    "progressLabel": "progress",
+    "intercept": "intercept",
+    "live": "live",
+    "subtitle": {
+      "episode": "Episode",
+      "movie": "Movie",
+      "season": "Season {n}",
+      "episodeN": "Episode {n}"
+    },
+    "failed": "failed",
+    "setup": {
+      "title": "Let's get you set up",
+      "steps": {
+        "token": {
+          "title": "Paste your MyShows token",
+          "where": "where to get it?"
+        },
+        "source": {
+          "title": "Turn on a source",
+          "hint": "easiest start — Players, they need no setup"
+        },
+        "playback": {
+          "title": "Start a movie or episode"
+        }
+      }
+    }
+  },
+  "sources": {
+    "title": "Sources",
+    "notConfigured": "not configured",
+    "aria": {
+      "enable": "Enable {source}"
+    },
+    "interceptOnly": {
+      "label": "Intercept only",
+      "hint": "events are logged but not sent to MyShows",
+      "lockedHint": "set via CLI flag, restart server to change"
+    },
+    "form": {
+      "url": "URL",
+      "token": "Token",
+      "reveal": "reveal",
+      "hide": "hide"
+    },
+    "name": {
+      "player": "Players"
+    },
+    "player": {
+      "subtitle": "VLC, MPC, mpv and others on this computer",
+      "hint": "Detects VLC, MPV, MPC, IINA, Infuse, QuickTime and Windows Media Player apps running on the same machine. On macOS, exact position/duration is read directly from VLC and QuickTime via AppleScript; other players fall back to a bundled `ffprobe` and process-uptime estimation."
+    },
+    "status": {
+      "checking": "checking…",
+      "ok": "connected",
+      "error": "error: {message}",
+      "errorByCode": {
+        "auth": "Invalid token — check that you copied the entire value",
+        "network": "Server isn't responding — check that it's running and reachable",
+        "unreachable": "Can't reach the server at this address"
+      },
+      "idle": "enable the source to check it"
+    },
+    "findToken": {
+      "button": "Find token",
+      "looking": "looking…",
+      "failed": {
+        "pms-not-installed": "no local Plex Media Server found",
+        "permission-denied": "no access to the player's settings",
+        "not-signed-in": "Plex Media Server isn't signed in to plex.tv",
+        "parse-error": "could not read the player's settings",
+        "kodi-not-installed": "Kodi isn't installed on this machine",
+        "webserver-disabled": "Kodi's web interface is off (Settings → Services → Control)",
+        "unknown": "token lookup failed"
+      }
+    },
+    "quickConnect": {
+      "button": "Connect via Quick Connect",
+      "initiating": "requesting code…",
+      "retry": "Try again",
+      "cancel": "Cancel",
+      "instruction": "Open {source} in a browser (the server's web UI) → your avatar → Quick Connect → enter the code:",
+      "failed": {
+        "no-url": "Set the server URL first",
+        "unreachable": "Server is unreachable",
+        "disabled": "Quick Connect is disabled on the server (Dashboard → Quick Connect)",
+        "expired": "Code expired, try again",
+        "timeout": "Timed out waiting for confirmation",
+        "unknown": "Quick Connect failed"
+      }
+    },
+    "signIn": {
+      "button": "Sign in to {source}",
+      "username": "Username",
+      "password": "Password",
+      "submit": "Sign in",
+      "signingIn": "Signing in…",
+      "cancel": "Cancel",
+      "failed": {
+        "no-url": "Set the server URL first",
+        "unreachable": "Server is unreachable",
+        "invalid-credentials": "Wrong username or password",
+        "unknown": "Sign-in failed"
+      }
+    }
+  },
+  "setup": {
+    "title": "Player Setup",
+    "subtitle": "Enable a player's local API so MyShows can read exact position",
+    "status": {
+      "unsupported": "not available on this OS",
+      "enabled": "enabled",
+      "disabled": "not enabled"
+    },
+    "button": {
+      "enable": "Enable",
+      "disable": "Disable",
+      "working": "working…"
+    },
+    "modal": {
+      "title": "Enable {name}?",
+      "intro": "These settings will be changed. This is reversible — you can Disable it later.",
+      "confirm": "Enable",
+      "cancel": "Cancel",
+      "absent": "(not set)"
+    },
+    "result": {
+      "restart": "Restart the player for the change to take effect.",
+      "verified": "Connected — the player's API is reachable.",
+      "applied": "Applied. Restart the player, then it will connect.",
+      "restored": "Disabled and restored to the previous setting.",
+      "forceRestored": "Disabled. The previous values were not saved — the player's settings were reset to defaults.",
+      "error": "Failed: {message}"
+    }
+  },
+  "events": {
+    "title": "Events",
+    "verbose": "verbose",
+    "follow": "follow",
+    "empty": "No events yet — events will appear here as they happen",
+    "type": {
+      "scr": "SCR",
+      "log": "LOG"
+    },
+    "skipped": "skipped (below threshold)"
+  },
+  "tester": {
+    "title": "Tester",
+    "devOnly": "dev only",
+    "reload": "reload",
+    "loading": "loading fixtures…",
+    "emptyCategory": "no fixtures in this category",
+    "endpointLabel": "endpoint",
+    "category": {
+      "movie": "Movie",
+      "episode": "Episode",
+      "anime-movie": "Anime Movie",
+      "anime-episode": "Anime Episode"
+    },
+    "buttons": {
+      "editJson": "Edit JSON",
+      "close": "Close",
+      "send": "Send"
+    },
+    "errors": {
+      "invalidJson": "Invalid JSON"
+    }
+  },
+  "common": {
+    "now": "now",
+    "minAgo": "{n} min ago",
+    "hourAgo": "{n} h ago",
+    "dayAgo": "{n} d ago"
+  },
+  "config": {
+    "editor": {
+      "open": "Edit config",
+      "title": "Edit config",
+      "hint": "Full config as JSON. Saving overwrites the config file, validates myshows_url and reloads sources. For advanced setup.",
+      "fileLabel": "File:",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "invalidJson": "Invalid JSON",
+      "sourcesRequired": "\"sources\" must be an array",
+      "saveFailed": "Failed to save config"
+    }
+  },
+  "update": {
+    "available": "A new version {version} is available",
+    "install": "Update",
+    "downloading": "Downloading…",
+    "skip": "Skip this version",
+    "indicator": "An update is available"
+  },
+  "errors": {
+    "backendUnavailable": "Scrobbler backend is unavailable on port {port}"
+  }
+}

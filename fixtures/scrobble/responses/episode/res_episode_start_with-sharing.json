@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "name": "Episode — start response with sharing (Trakt)",
+    "description": "Trakt-ответ с sharing-флагами (twitter, tumblr).",
+    "category": "episode",
+    "action": "start"
+  },
+  "payload": {
+    "id": 934521,
+    "action": "start",
+    "progress": 0,
+    "sharing": {
+      "twitter": true,
+      "tumblr": false
+    },
+    "show": {
+      "title": "Breaking Bad",
+      "year": 2008,
+      "ids": {
+        "imdb": "tt0903747",
+        "tmdb": "1396",
+        "tvdb": "81189",
+        "trakt": 1388,
+        "slug": "breaking-bad"
+      }
+    },
+    "episode": {
+      "season": 3,
+      "number": 1,
+      "title": "No Mas",
+      "ids": {
+        "imdb": "tt1232246",
+        "tmdb": "62126",
+        "tvdb": "1088061",
+        "trakt": 49681
+      }
+    }
+  }
+}

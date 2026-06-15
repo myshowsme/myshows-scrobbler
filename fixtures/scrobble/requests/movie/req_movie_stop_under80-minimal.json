@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "name": "Movie — stop <80%, minimal",
+    "description": "Стоп фильма до порога 80%. Сервер вернёт action=pause вместо scrobble.",
+    "category": "movie",
+    "action": "stop",
+    "level": "minimal",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "movie": {
+      "title": "Oppenheimer",
+      "year": 2023,
+      "ids": {
+        "imdb": "tt15398776",
+        "tmdb": "872585"
+      }
+    },
+    "progress": 55.0
+  }
+}

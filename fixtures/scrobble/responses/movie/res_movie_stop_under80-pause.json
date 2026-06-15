@@ -1,0 +1,23 @@
+{
+  "_meta": {
+    "name": "Movie — stop <80% returns pause",
+    "description": "Stop с progress <80%: сервер возвращает action=pause вместо scrobble.",
+    "category": "movie",
+    "action": "pause"
+  },
+  "payload": {
+    "id": 718236,
+    "action": "pause",
+    "progress": 55.0,
+    "movie": {
+      "title": "Oppenheimer",
+      "year": 2023,
+      "ids": {
+        "imdb": "tt15398776",
+        "tmdb": "872585",
+        "trakt": 804095,
+        "slug": "oppenheimer-2023"
+      }
+    }
+  }
+}

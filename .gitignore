@@ -1,0 +1,9 @@
+node_modules/
+dist/
+release/
+data/
+*.log
+.DS_Store
+tests/e2e/.tmp/
+playwright-report/
+test-results/

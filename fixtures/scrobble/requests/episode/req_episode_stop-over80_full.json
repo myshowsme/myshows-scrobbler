@@ -1,0 +1,53 @@
+{
+  "_meta": {
+    "name": "Episode — stop >=80%, full metadata",
+    "description": "Полный эпизод: все IDs, MyShows-поля, metadata, rating.",
+    "category": "episode",
+    "action": "stop",
+    "level": "full",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "show": {
+      "title": "Breaking Bad",
+      "original_title": "Breaking Bad",
+      "year": 2008,
+      "ids": {
+        "myshows": 12345,
+        "imdb": "tt0903747",
+        "tmdb": "1396",
+        "tvdb": "81189",
+        "trakt": 1388,
+        "simkl": 39185,
+        "slug": "breaking-bad"
+      },
+      "content_rating": "TV-MA"
+    },
+    "episode": {
+      "season": 3,
+      "number": 1,
+      "title": "No Mas",
+      "ids": {
+        "imdb": "tt1232246",
+        "tmdb": "62126",
+        "tvdb": "1088061",
+        "trakt": 49681
+      },
+      "runtime": 47,
+      "metadata": {
+        "media_type": "digital",
+        "resolution": "hd_1080p",
+        "hdr": "hdr10",
+        "audio": "dolby_digital_plus",
+        "audio_channels": "5.1",
+        "audio_language": "en",
+        "3d": false
+      }
+    },
+    "progress": 97.5,
+    "source_app": "plex",
+    "rating": 9,
+    "app_version": "2.0.0",
+    "app_date": "2024-07-20"
+  }
+}

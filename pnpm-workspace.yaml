@@ -1,0 +1,48 @@
+# electron-builder ships the app's native deps by globbing the top-level
+# node_modules (see build.files in package.json). pnpm's default isolated
+# layout keeps transitive, platform-specific binary packages
+# (@koromix/koffi-*, @ffprobe-installer/<platform>) only inside .pnpm/, where
+# those globs can't reach them — so they'd be dropped from the packaged app.
+# Hoist just those native packages to the top level. (A full `nodeLinker:
+# hoisted` would also pull in every other platform's optional binaries —
+# esbuild, vite-plus, etc. — bloating installs, so we keep it isolated.)
+publicHoistPattern:
+  - 'koffi'
+  - '@koromix/*'
+  - '@ffprobe-installer/*'
+
+overrides:
+  vite: 'npm:@voidzero-dev/vite-plus-core@latest'
+  vitest: 'npm:@voidzero-dev/vite-plus-test@latest'
+
+allowBuilds:
+  # Bundled cross-platform ffprobe binaries — postinstall does `chmod +x`.
+  # Only the binary for the current platform/arch is actually installed (via
+  # optionalDependencies inside @ffprobe-installer/ffprobe), the others are skipped.
+  '@ffprobe-installer/darwin-arm64': true
+  '@ffprobe-installer/darwin-x64': true
+  '@ffprobe-installer/linux-arm64': true
+  '@ffprobe-installer/linux-ia32': true
+  '@ffprobe-installer/linux-x64': true
+  '@ffprobe-installer/win32-ia32': true
+  '@ffprobe-installer/win32-x64': true
+  '@parcel/watcher': true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  # koffi ships prebuilt Win32/macOS/Linux .node binaries via its postinstall
+  # (cnoke). No native compile, just downloads the right blob per arch.
+  koffi: true
+
+minimumReleaseAgeExclude:
+  - '@types/node@25.9.3'
+  - '@vue/compiler-core@3.5.38'
+  - '@vue/compiler-dom@3.5.38'
+  - '@vue/compiler-sfc@3.5.38'
+  - '@vue/compiler-ssr@3.5.38'
+  - '@vue/reactivity@3.5.38'
+  - '@vue/runtime-core@3.5.38'
+  - '@vue/runtime-dom@3.5.38'
+  - '@vue/server-renderer@3.5.38'
+  - '@vue/shared@3.5.38'
+  - vue@3.5.38

@@ -1,0 +1,15 @@
+{
+  // Governing config for the test suite. The root tsconfig is the build config
+  // (rootDir: src) and deliberately excludes tests, which leaves test files
+  // without node types when a tool type-checks them in isolation (e.g. the
+  // pre-commit `vp check --fix` on staged files). This config gives the tests
+  // their own node-aware context while reusing the root's strictness.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["../node_modules", "../dist"]
+}

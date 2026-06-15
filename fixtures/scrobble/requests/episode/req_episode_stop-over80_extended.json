@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "name": "Episode — stop >=80%, extended",
+    "description": "Финиш эпизода с rating и audio_language. MyShows-расширенные поля.",
+    "category": "episode",
+    "action": "stop",
+    "level": "extended",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "show": {
+      "title": "Breaking Bad",
+      "year": 2008,
+      "ids": {
+        "imdb": "tt0903747",
+        "tmdb": "1396",
+        "tvdb": "81189",
+        "trakt": 1388,
+        "simkl": 39185
+      }
+    },
+    "episode": {
+      "season": 3,
+      "number": 1,
+      "title": "No Mas",
+      "ids": {
+        "imdb": "tt1232246",
+        "tmdb": "62126",
+        "tvdb": "1088061",
+        "trakt": 49681
+      }
+    },
+    "progress": 92.0,
+    "rating": 8,
+    "source_app": "jellyfin",
+    "app_version": "2.0.0"
+  }
+}

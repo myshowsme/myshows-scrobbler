@@ -1,0 +1,29 @@
+{
+  "_meta": {
+    "name": "Anime movie — start, extended",
+    "description": "Аниме-фильм с mal/anidb IDs, original_title на японском.",
+    "category": "anime-movie",
+    "action": "start",
+    "level": "extended",
+    "endpoint": "/scrobble/start"
+  },
+  "payload": {
+    "movie": {
+      "title": "Your Name.",
+      "original_title": "君の名は。",
+      "year": 2016,
+      "ids": {
+        "imdb": "tt5311514",
+        "tmdb": "372058",
+        "mal": 32281,
+        "anidb": 11829
+      },
+      "runtime": 106,
+      "metadata": {
+        "audio_language": "ja"
+      }
+    },
+    "progress": 0,
+    "source_app": "plex"
+  }
+}

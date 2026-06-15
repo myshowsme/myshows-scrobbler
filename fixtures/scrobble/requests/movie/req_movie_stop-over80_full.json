@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "name": "Movie — stop >=80%, full metadata",
+    "description": "Максимально полный фильм: все IDs, MyShows-поля, metadata, rating.",
+    "category": "movie",
+    "action": "stop",
+    "level": "full",
+    "endpoint": "/scrobble/stop"
+  },
+  "payload": {
+    "movie": {
+      "title": "Oppenheimer",
+      "original_title": "Oppenheimer",
+      "year": 2023,
+      "ids": {
+        "myshows": 98765,
+        "imdb": "tt15398776",
+        "tmdb": "872585",
+        "trakt": 804095,
+        "simkl": 1517535,
+        "slug": "oppenheimer-2023"
+      },
+      "runtime": 180,
+      "content_rating": "R",
+      "metadata": {
+        "media_type": "digital",
+        "resolution": "uhd_4k",
+        "hdr": "dolby_vision",
+        "audio": "dolby_atmos",
+        "audio_channels": "7.1.4",
+        "audio_language": "en",
+        "3d": false
+      }
+    },
+    "progress": 98.1,
+    "source_app": "plex",
+    "rating": 10,
+    "app_version": "2.0.0",
+    "app_date": "2024-07-20"
+  }
+}
