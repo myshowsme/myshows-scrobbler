@@ -24,28 +24,11 @@ The scrobbler runs locally: it tracks playback, and once you pass the watch thre
 
 ## Screenshots
 
-<!--
-  TODO: drop PNGs into assets/screenshots/ and uncomment the block below.
-  Suggested shots:
-    - now-playing.png — the "Now playing" card with progress
-    - sources.png      — the sources list with Plex/Jellyfin connected
-    - setup.png        — the Setup panel (one-click player enable)
-
 <div align="center">
 
-![Now playing](assets/screenshots/now-playing.png)
+![MyShows Scrobbler](assets/screenshots/app-en.png)
 
 </div>
-
-<table>
-  <tr>
-    <td width="50%"><img src="assets/screenshots/sources.png" alt="Sources" /></td>
-    <td width="50%"><img src="assets/screenshots/setup.png" alt="Setup panel" /></td>
-  </tr>
-</table>
--->
-
-_Screenshots coming soon._
 
 ## Installation
 
@@ -59,13 +42,9 @@ Grab a build from the [Releases](https://github.com/myshowsme/myshows-scrobbler/
 
 Nothing else to install — the builds are self-contained: ffprobe and the native modules are bundled in.
 
-> **The builds are unsigned.** The OS will warn you on first launch; that's expected.
->
-> - **macOS** — right-click the app → **Open**, or clear the quarantine flag manually:
->   ```bash
->   xattr -d com.apple.quarantine "/Applications/MyShows Scrobbler.app"
->   ```
-> - **Windows** — SmartScreen will warn: **More info → Run anyway**.
+> - **macOS** — the build is signed with an Apple Developer ID certificate and notarized: it installs and launches with no warnings.
+> - **Windows** — the build is unsigned; SmartScreen will warn: **More info → Run anyway**.
+> - **Linux** — the AppImage is not signed; make it executable if needed (`chmod +x`).
 
 The app lives in the tray and keeps scrobbling with the window closed. Updates come from GitHub Releases; the app asks before installing one.
 
