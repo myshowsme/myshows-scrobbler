@@ -1,25 +1,71 @@
+<div align="center">
+
+<img src="build/icon.png" width="128" alt="MyShows Scrobbler" />
+
 # MyShows Scrobbler
+
+**Универсальный скробблер для [MyShows.me](https://myshows.me) — Plex, Jellyfin, Emby, Kodi и десктопные плееры.**
 
 [English](README.en.md)
 
 [![Release](https://img.shields.io/github/v/release/myshowsme/myshows-scrobbler)](https://github.com/myshowsme/myshows-scrobbler/releases)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-2b2b2b)](https://github.com/myshowsme/myshows-scrobbler/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+[Установка](#установка) · [Быстрый старт](#быстрый-старт) · [Источники](#источники) · [Без приложения](#без-десктоп-приложения) · [Разработка](#разработка)
+
+</div>
+
+---
 
 Смотрите привычным вам способом — в Plex, Jellyfin, Emby, Kodi или просто в десктопном плеере. Не переживайте об отметке: прогресс просмотра и дата отправляются в ваш профиль [MyShows.me](https://myshows.me).
 
 Скробблер работает локально: следит за воспроизведением, и когда вы досмотрели серию до порога (по умолчанию 80%), отправляет отметку в MyShows. Недосмотренное не засчитывается. Никакой телеметрии — данные уходят только в MyShows и на ваши медиасерверы.
 
-<!-- TODO: добавить скриншот — ![MyShows Scrobbler](assets/screenshot.png) -->
+## Скриншоты
+
+<!--
+  TODO: положите PNG в assets/screenshots/ и раскомментируйте блок ниже.
+  Рекомендуемые кадры:
+    - now-playing.png — карточка «Сейчас смотрю» с прогрессом
+    - sources.png      — список источников с подключённым Plex/Jellyfin
+    - setup.png        — панель Setup (включение плеера в один клик)
+
+<div align="center">
+
+![Сейчас смотрю](assets/screenshots/now-playing.png)
+
+</div>
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/sources.png" alt="Источники" /></td>
+    <td width="50%"><img src="assets/screenshots/setup.png" alt="Панель Setup" /></td>
+  </tr>
+</table>
+-->
+
+_Скриншоты скоро будут._
 
 ## Установка
 
-Готовые сборки — на странице [Releases](https://github.com/myshowsme/myshows-scrobbler/releases):
+Готовые сборки — на странице [Releases](https://github.com/myshowsme/myshows-scrobbler/releases/latest):
 
-| Платформа             | Файл                                   | Примечания                                                                                           |
-| --------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Windows               | `MyShows Scrobbler Setup <версия>.exe` |                                                                                                      |
-| macOS (Apple Silicon) | `*.dmg`                                | Сборка не нотаризована. При первом запуске macOS пожалуется — откройте через правый клик → «Открыть» |
-| Linux                 | `*.AppImage`                           | Экспериментально                                                                                     |
+| Платформа             | Файл                                      |
+| --------------------- | ----------------------------------------- |
+| Windows               | `MyShows Scrobbler Setup <версия>.exe`    |
+| macOS (Apple Silicon) | `*-arm64.dmg`                             |
+| Linux                 | `*.AppImage` (portable, экспериментально) |
+
+Ставить что-либо дополнительно не нужно — сборки самодостаточны: ffprobe и нативные модули уже внутри.
+
+> **Сборки не подписаны.** При первом запуске система предупредит — это ожидаемо.
+>
+> - **macOS** — правый клик по приложению → **«Открыть»**, либо снимите карантин вручную:
+>   ```bash
+>   xattr -d com.apple.quarantine "/Applications/MyShows Scrobbler.app"
+>   ```
+> - **Windows** — SmartScreen покажет предупреждение: **Подробнее → Выполнить в любом случае**.
 
 Приложение живёт в трее и продолжает скробблить с закрытым окном. Обновления подтягиваются с GitHub Releases — приложение спросит, прежде чем ставить.
 

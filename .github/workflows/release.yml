@@ -78,6 +78,13 @@ jobs:
       - name: Build (server + UI + electron bundle)
         run: pnpm run build:all
 
+      # Fail before packing if a per-platform piece electron-builder would bundle
+      # is broken: the build outputs, the koffi native addon, or the ffprobe
+      # binary. Cheaper to catch here than to ship an installer that crashes on
+      # first launch.
+      - name: Verify bundled binaries
+        run: node scripts/verify-bundled-binaries.mjs
+
       - name: Build & publish installers
         run: node scripts/run-electron-builder.mjs --publish always
         env:

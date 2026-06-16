@@ -149,6 +149,11 @@ const TRAY_NOTICE_BODY: Record<UiLocale, string> = {
   en: 'The app keeps running in the tray and keeps scrobbling. Use the tray icon menu to quit.',
 }
 
+const UPDATE_AVAILABLE_BODY: Record<UiLocale, (version: string) => string> = {
+  ru: (version) => `Доступна новая версия ${version}`,
+  en: (version) => `A new version ${version} is available`,
+}
+
 function maybeShowTrayNotice(): void {
   if (!Notification.isSupported() || fs.existsSync(trayNoticePath())) {
     return
@@ -195,11 +200,16 @@ async function createMainWindow(url: string): Promise<void> {
     // adapters keep running in the main process, so scrobbling is unaffected;
     // reopening from the tray recreates the window and re-syncs from the server.
     event.preventDefault()
-    maybeShowTrayNotice()
-    mainWindow?.destroy()
-    if (process.platform === 'darwin') {
-      app.dock?.hide()
-    }
+    // Refresh the notification language from the renderer while the window is
+    // still alive (the tray notice reads getUiLocale), then tear it down. The
+    // destroy is deferred to .finally so it runs even if the sync fails.
+    void syncUiLocale().finally(() => {
+      maybeShowTrayNotice()
+      mainWindow?.destroy()
+      if (process.platform === 'darwin') {
+        app.dock?.hide()
+      }
+    })
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url: externalUrl }: { url: string }) => {
@@ -291,12 +301,16 @@ function createUpdateController(): {
       updateStatus = { available: true, version: info.version, downloading: false }
       logger.info(`Update available: ${info.version}`)
       if (Notification.isSupported()) {
-        const note = new Notification({
-          title: 'MyShows Scrobbler',
-          body: `Доступна новая версия ${info.version}`,
+        // Refresh the language from the renderer first (if the window is still
+        // alive) so the notice matches the in-app choice, not just the OS locale.
+        void syncUiLocale().finally(() => {
+          const note = new Notification({
+            title: 'MyShows Scrobbler',
+            body: UPDATE_AVAILABLE_BODY[getUiLocale()](info.version),
+          })
+          note.on('click', restoreMainWindow)
+          note.show()
         })
-        note.on('click', restoreMainWindow)
-        note.show()
       }
     })
     // Win/Linux: once the user opted in and the download finished, install it.

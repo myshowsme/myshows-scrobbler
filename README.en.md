@@ -1,25 +1,71 @@
+<div align="center">
+
+<img src="build/icon.png" width="128" alt="MyShows Scrobbler" />
+
 # MyShows Scrobbler
+
+**Universal scrobbler for [MyShows.me](https://myshows.me) — Plex, Jellyfin, Emby, Kodi and desktop players.**
 
 [Русская версия](README.md)
 
 [![Release](https://img.shields.io/github/v/release/myshowsme/myshows-scrobbler)](https://github.com/myshowsme/myshows-scrobbler/releases)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-2b2b2b)](https://github.com/myshowsme/myshows-scrobbler/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+[Installation](#installation) · [Quick start](#quick-start) · [Sources](#sources) · [Without the app](#without-the-desktop-app) · [Development](#development)
+
+</div>
+
+---
 
 Watch the way you always do, in Plex, Jellyfin, Emby, Kodi or a plain desktop player. Don't worry about check-ins: your watch progress and date go to your [MyShows.me](https://myshows.me) profile automatically.
 
 The scrobbler runs locally: it tracks playback, and once you pass the watch threshold (80% by default) it checks the episode in on MyShows. Abandoned episodes don't count. No telemetry — data only goes to MyShows and your own media servers.
 
-<!-- TODO: add screenshot — ![MyShows Scrobbler](assets/screenshot.png) -->
+## Screenshots
+
+<!--
+  TODO: drop PNGs into assets/screenshots/ and uncomment the block below.
+  Suggested shots:
+    - now-playing.png — the "Now playing" card with progress
+    - sources.png      — the sources list with Plex/Jellyfin connected
+    - setup.png        — the Setup panel (one-click player enable)
+
+<div align="center">
+
+![Now playing](assets/screenshots/now-playing.png)
+
+</div>
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/sources.png" alt="Sources" /></td>
+    <td width="50%"><img src="assets/screenshots/setup.png" alt="Setup panel" /></td>
+  </tr>
+</table>
+-->
+
+_Screenshots coming soon._
 
 ## Installation
 
-Grab a build from the [Releases](https://github.com/myshowsme/myshows-scrobbler/releases) page:
+Grab a build from the [Releases](https://github.com/myshowsme/myshows-scrobbler/releases/latest) page:
 
-| Platform              | File                                    | Notes                                                              |
-| --------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| Windows               | `MyShows Scrobbler Setup <version>.exe` |                                                                    |
-| macOS (Apple Silicon) | `*.dmg`                                 | The build is not notarized. On first launch use right-click → Open |
-| Linux                 | `*.AppImage`                            | Experimental                                                       |
+| Platform              | File                                    |
+| --------------------- | --------------------------------------- |
+| Windows               | `MyShows Scrobbler Setup <version>.exe` |
+| macOS (Apple Silicon) | `*-arm64.dmg`                           |
+| Linux                 | `*.AppImage` (portable, experimental)   |
+
+Nothing else to install — the builds are self-contained: ffprobe and the native modules are bundled in.
+
+> **The builds are unsigned.** The OS will warn you on first launch; that's expected.
+>
+> - **macOS** — right-click the app → **Open**, or clear the quarantine flag manually:
+>   ```bash
+>   xattr -d com.apple.quarantine "/Applications/MyShows Scrobbler.app"
+>   ```
+> - **Windows** — SmartScreen will warn: **More info → Run anyway**.
 
 The app lives in the tray and keeps scrobbling with the window closed. Updates come from GitHub Releases; the app asks before installing one.
 
