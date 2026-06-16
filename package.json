@@ -34,8 +34,8 @@
     "build": "vp pack",
     "build:ui": "vp build ui",
     "build:all": "vp run build && vp run build:ui",
-    "build:electron": "vp run build:all && node scripts/run-electron-builder.mjs",
-    "build:electron:dir": "vp run build:all && node scripts/run-electron-builder.mjs --dir",
+    "build:electron": "vp run build:all && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false node scripts/run-electron-builder.mjs",
+    "build:electron:dir": "vp run build:all && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false node scripts/run-electron-builder.mjs --dir",
     "electron": "vp run build:all && electron dist/electron/electron.mjs",
     "start": "node dist/server/index.mjs",
     "start:ui": "node dist/server/index.mjs --ui",
@@ -154,8 +154,11 @@
     "npmRebuild": false,
     "mac": {
       "category": "public.app-category.entertainment",
-      "identity": null,
       "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
       "target": [
         "dmg",
         "zip"

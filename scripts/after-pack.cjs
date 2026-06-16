@@ -21,6 +21,13 @@ exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') {
     return
   }
+  // When a real Developer ID cert is provided (CI), electron-builder signs the
+  // bundle itself with the hardened runtime + entitlements and then notarizes.
+  // A pre-emptive ad-hoc signature here is pointless (it gets overwritten) and
+  // would only muddy the logs, so leave signing to electron-builder.
+  if (process.env.CSC_LINK || process.env.CSC_NAME) {
+    return
+  }
   const appPath = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`)
   // Sign inside-out is what electron-builder normally does; for a plain ad-hoc
   // pass `--deep` is sufficient to seal the nested helpers/framework.
