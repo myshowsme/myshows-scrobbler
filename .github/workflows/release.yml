@@ -90,13 +90,19 @@ jobs:
         env:
           # Lets electron-builder create/update the draft release in this repo.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # ── macOS signing + notarization (optional) ──────────────────────
+          # ── macOS signing + notarization ─────────────────────────────────
           # Required for auto-update on macOS (Squirrel.Mac verifies the
-          # signature) and to avoid the Gatekeeper warning. To enable: add the
-          # secrets below, remove `mac.identity: null` from package.json, and
-          # uncomment these lines.
-          # CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # signature) and to avoid the Gatekeeper warning. Empty on forks /
+          # when the secrets are unset: electron-builder then falls back to the
+          # ad-hoc signature from scripts/after-pack.cjs and skips notarization.
+          #
+          #   CSC_LINK                    base64 of the Developer ID .p12
+          #   CSC_KEY_PASSWORD            password set when exporting the .p12
+          #   APPLE_ID                    Apple ID email (notarization)
+          #   APPLE_APP_SPECIFIC_PASSWORD app-specific password for that Apple ID
+          #   APPLE_TEAM_ID               10-char Developer Team ID
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

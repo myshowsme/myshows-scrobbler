@@ -131,10 +131,25 @@ if (!existsSync(resolvedBin)) {
   process.exit(1)
 }
 
+// Notarization is gated on the Apple credentials being present: it only runs in
+// CI where the secrets are wired up, never on a contributor's local `pnpm
+// build:electron`. electron-builder reads the APPLE_ID / APPLE_TEAM_ID env vars
+// itself; we just flip `mac.notarize` on so it actually submits the build.
+const passthroughArgs = process.argv.slice(2)
+const canNotarize =
+  process.platform === 'darwin' &&
+  process.env.APPLE_ID &&
+  process.env.APPLE_APP_SPECIFIC_PASSWORD &&
+  process.env.APPLE_TEAM_ID
+if (canNotarize) {
+  passthroughArgs.push('-c.mac.notarize=true')
+  console.log('[run-electron-builder] Apple credentials detected — enabling notarization')
+}
+
 // shell:true is required on Windows because Node 18.20.2+ refuses to spawn
 // .cmd/.bat files directly (CVE-2024-27980 mitigation). resolvedBin is the
 // ASCII short path, so cmd's bat-content codepage no longer matters here.
-const child = spawn(resolvedBin, process.argv.slice(2), {
+const child = spawn(resolvedBin, passthroughArgs, {
   env,
   stdio: 'inherit',
   shell: isWindows,
