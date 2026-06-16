@@ -24,28 +24,11 @@ The scrobbler runs locally: it tracks playback, and once you pass the watch thre
 
 ## Screenshots
 
-<!--
-  TODO: drop PNGs into assets/screenshots/ and uncomment the block below.
-  Suggested shots:
-    - now-playing.png — the "Now playing" card with progress
-    - sources.png      — the sources list with Plex/Jellyfin connected
-    - setup.png        — the Setup panel (one-click player enable)
-
 <div align="center">
 
-![Now playing](assets/screenshots/now-playing.png)
+![MyShows Scrobbler](assets/screenshots/app-en.png)
 
 </div>
-
-<table>
-  <tr>
-    <td width="50%"><img src="assets/screenshots/sources.png" alt="Sources" /></td>
-    <td width="50%"><img src="assets/screenshots/setup.png" alt="Setup panel" /></td>
-  </tr>
-</table>
--->
-
-_Screenshots coming soon._
 
 ## Installation
 

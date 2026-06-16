@@ -24,28 +24,11 @@
 
 ## Скриншоты
 
-<!--
-  TODO: положите PNG в assets/screenshots/ и раскомментируйте блок ниже.
-  Рекомендуемые кадры:
-    - now-playing.png — карточка «Сейчас смотрю» с прогрессом
-    - sources.png      — список источников с подключённым Plex/Jellyfin
-    - setup.png        — панель Setup (включение плеера в один клик)
-
 <div align="center">
 
-![Сейчас смотрю](assets/screenshots/now-playing.png)
+![MyShows Scrobbler](assets/screenshots/app-ru.png)
 
 </div>
-
-<table>
-  <tr>
-    <td width="50%"><img src="assets/screenshots/sources.png" alt="Источники" /></td>
-    <td width="50%"><img src="assets/screenshots/setup.png" alt="Панель Setup" /></td>
-  </tr>
-</table>
--->
-
-_Скриншоты скоро будут._
 
 ## Установка
 
