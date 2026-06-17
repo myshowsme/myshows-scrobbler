@@ -254,11 +254,6 @@ function createUpdateController(): {
   start: (logger: Logger) => void
 } {
   const skipped = loadSkippedUpdates()
-  // Versions we've already shown a native notification for this session. The
-  // periodic re-check (every 6h) re-fires `update-available` for the same
-  // version; without this the user would get the same popup every 6h until
-  // they act. In-memory on purpose — one reminder per app launch is fine.
-  const notifiedVersions = new Set<string>()
 
   const controller: UpdateController = {
     getStatus: () => ({ ...updateStatus }),
@@ -300,16 +295,22 @@ function createUpdateController(): {
       }
       updateStatus = { available: true, version: info.version, downloading: false }
       logger.info(`Update available: ${info.version}`)
-      // The in-app dot + banner always reflect availability; the native popup
-      // only fires the first time we see a given version, not on every re-check.
-      if (Notification.isSupported() && !notifiedVersions.has(info.version)) {
-        notifiedVersions.add(info.version)
+      // Only nudge with a native popup when the window is hidden (parked in the
+      // tray / minimized). If it's open, the in-app dot + banner already show the
+      // update, so a popup would be redundant. The 6h re-check keeps re-firing
+      // this event, so a tray user gets a quiet reminder every 6h until they act
+      // (Install downloads; Skip adds the version to `skipped` above).
+      const windowHidden = !mainWindow || !mainWindow.isVisible() || mainWindow.isMinimized()
+      if (Notification.isSupported() && windowHidden) {
         // Refresh the language from the renderer first (if the window is still
         // alive) so the notice matches the in-app choice, not just the OS locale.
         void syncUiLocale().finally(() => {
           const note = new Notification({
             title: 'MyShows Scrobbler',
             body: UPDATE_AVAILABLE_BODY[getUiLocale()](info.version),
+            // Silent: the app lives in the tray long-term, so an update is a
+            // low-urgency heads-up — a soundless nudge, not an alert.
+            silent: true,
           })
           note.on('click', restoreMainWindow)
           note.show()
