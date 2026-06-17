@@ -254,6 +254,11 @@ function createUpdateController(): {
   start: (logger: Logger) => void
 } {
   const skipped = loadSkippedUpdates()
+  // Versions we've already shown a native notification for this session. The
+  // periodic re-check (every 6h) re-fires `update-available` for the same
+  // version; without this the user would get the same popup every 6h until
+  // they act. In-memory on purpose — one reminder per app launch is fine.
+  const notifiedVersions = new Set<string>()
 
   const controller: UpdateController = {
     getStatus: () => ({ ...updateStatus }),
@@ -295,7 +300,10 @@ function createUpdateController(): {
       }
       updateStatus = { available: true, version: info.version, downloading: false }
       logger.info(`Update available: ${info.version}`)
-      if (Notification.isSupported()) {
+      // The in-app dot + banner always reflect availability; the native popup
+      // only fires the first time we see a given version, not on every re-check.
+      if (Notification.isSupported() && !notifiedVersions.has(info.version)) {
+        notifiedVersions.add(info.version)
         // Refresh the language from the renderer first (if the window is still
         // alive) so the notice matches the in-app choice, not just the OS locale.
         void syncUiLocale().finally(() => {
