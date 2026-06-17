@@ -10,8 +10,6 @@ import type { UpdateController, UpdateStatus } from './types.js'
 
 const { autoUpdater } = electronUpdater
 
-const RELEASES_URL = 'https://github.com/myshowsme/myshows-scrobbler/releases/latest'
-
 process.env.NODE_ENV = 'production'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -256,7 +254,6 @@ function createUpdateController(): {
   start: (logger: Logger) => void
 } {
   const skipped = loadSkippedUpdates()
-  const isMac = process.platform === 'darwin'
 
   const controller: UpdateController = {
     getStatus: () => ({ ...updateStatus }),
@@ -264,12 +261,10 @@ function createUpdateController(): {
       if (!updateStatus.version) {
         return
       }
-      if (isMac) {
-        // Unsigned macOS build can't self-install (Squirrel.Mac needs a
-        // signature) — open the release page for a manual download.
-        void shell.openExternal(RELEASES_URL)
-        return
-      }
+      // All platforms self-install: download the update, then quitAndInstall on
+      // `update-downloaded`. macOS works too because release builds are signed
+      // + notarized (Squirrel.Mac requires a valid signature) and ship a `zip`
+      // target alongside the dmg.
       updateStatus = { ...updateStatus, downloading: true }
       void autoUpdater.downloadUpdate().catch(() => {
         updateStatus = { ...updateStatus, downloading: false }

@@ -1,6 +1,6 @@
 {
   "name": "myshows-scrobbler",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Universal media scrobbler for MyShows (Plex, Emby, Jellyfin, Kodi)",
   "keywords": [
     "emby",
@@ -60,14 +60,14 @@
     "koffi": "3.0.2"
   },
   "devDependencies": {
-    "@playwright/test": "1.60.0",
+    "@playwright/test": "1.61.0",
     "@types/node": "25.9.3",
     "@types/ws": "8.18.1",
     "@vitejs/plugin-vue": "6.0.7",
-    "@vitest/ui": "4.1.8",
+    "@vitest/ui": "4.1.9",
     "concurrently": "10.0.3",
     "cross-env": "10.1.0",
-    "electron": "41.7.1",
+    "electron": "42.4.1",
     "electron-builder": "26.15.3",
     "portless": "0.14.0",
     "sass": "1.101.0",
@@ -87,7 +87,7 @@
     "node": ">=24.0.0",
     "pnpm": ">=11.0.0"
   },
-  "packageManager": "pnpm@11.5.3+sha512.7ac1c919341c213a34dc0d02afb7143c5c26ac26ee8c4782deea821b8ac64d2134a081fd8941dae6e29bbb48f58dfc2b7fbceeccc07cb2f09d219d342a4969ed",
+  "packageManager": "pnpm@11.7.0+sha512.19cc852c120c7125760f2443ee6be0ca5b40f9f50598de1a09a1f177503e010e57c23c77646e01e761de59bf874fb22a3398c33ab9691fc13eb946b6f0f4d620",
   "build": {
     "appId": "me.myshows.scrobbler",
     "productName": "MyShows Scrobbler",
