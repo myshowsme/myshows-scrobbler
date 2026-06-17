@@ -640,13 +640,22 @@ function onTokenEdit(value: string) {
     font-weight: 600;
     padding: 5px 12px;
     border-radius: 7px;
-    border: 1px solid var(--v2-border-soft);
-    background: transparent;
-    color: var(--v2-text);
+    border: 1px solid var(--v2-border-strong, #cfcfd4);
+    background: var(--v2-bg, #fff);
+    // Fallback guards against the global `button { color: var(--color-text) }`
+    // reset (white) leaking in if the custom property fails to resolve.
+    color: var(--v2-text, #1a1a1d);
     cursor: pointer;
+    transition:
+      background-color 0.12s,
+      border-color 0.12s;
 
+    // Always restate color on hover so the dark text can never fall back to the
+    // global white default — that was making the label invisible.
     &:hover:not(:disabled) {
-      background: var(--v2-bg-stripe);
+      background: var(--v2-bg-stripe, #f7f7f8);
+      border-color: var(--v2-border-strong, #cfcfd4);
+      color: var(--v2-text, #1a1a1d);
     }
     &:disabled {
       opacity: 0.55;
@@ -654,12 +663,16 @@ function onTokenEdit(value: string) {
     }
 
     &--primary {
-      background: var(--v2-brand);
-      border-color: var(--v2-brand);
+      background: var(--v2-brand, #e63946);
+      border-color: var(--v2-brand, #e63946);
       color: #fff;
 
+      // Darken on hover (white text stays high-contrast) instead of a faint
+      // brightness filter that washed the button out.
       &:hover:not(:disabled) {
-        filter: brightness(1.06);
+        background: var(--v2-brand-dark, #c62731);
+        border-color: var(--v2-brand-dark, #c62731);
+        color: #fff;
       }
     }
   }
