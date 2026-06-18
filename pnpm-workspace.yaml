@@ -12,8 +12,7 @@ publicHoistPattern:
   - '@ffprobe-installer/*'
 
 overrides:
-  vite: 'npm:@voidzero-dev/vite-plus-core@latest'
-  vitest: 'npm:@voidzero-dev/vite-plus-test@latest'
+  vite: 'npm:@voidzero-dev/vite-plus-core@0.2.1'
 
 allowBuilds:
   # Bundled cross-platform ffprobe binaries — postinstall does `chmod +x`.
@@ -47,3 +46,13 @@ minimumReleaseAgeExclude:
   - '@vue/shared@3.5.38'
   - vue@3.5.38
   - electron@42.4.1
+  - '@voidzero-dev/vite-plus-core@0.2.1'
+  - '@voidzero-dev/vite-plus-darwin-arm64@0.2.1'
+  - '@voidzero-dev/vite-plus-darwin-x64@0.2.1'
+  - '@voidzero-dev/vite-plus-linux-arm64-gnu@0.2.1'
+  - '@voidzero-dev/vite-plus-linux-arm64-musl@0.2.1'
+  - '@voidzero-dev/vite-plus-linux-x64-gnu@0.2.1'
+  - '@voidzero-dev/vite-plus-linux-x64-musl@0.2.1'
+  - '@voidzero-dev/vite-plus-win32-arm64-msvc@0.2.1'
+  - '@voidzero-dev/vite-plus-win32-x64-msvc@0.2.1'
+  - vite-plus@0.2.1

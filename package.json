@@ -73,9 +73,9 @@
     "sass": "1.101.0",
     "tsx": "4.22.4",
     "typescript": "6.0.3",
-    "vite": "npm:@voidzero-dev/vite-plus-core@^0.1.21",
-    "vite-plus": "0.1.24",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@^0.1.21",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.1",
+    "vite-plus": "0.2.1",
+    "vitest": "4.1.9",
     "vue": "3.5.38",
     "vue-i18n": "11.4.5",
     "vue-tsc": "3.3.5"
