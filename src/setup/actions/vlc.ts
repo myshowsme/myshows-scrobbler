@@ -80,8 +80,7 @@ export const vlcHttpInterfaceAction: SetupAction = {
   id: 'vlc-http-interface',
   player: 'vlc',
   name: 'VLC Web Interface',
-  description:
-    'Включает HTTP API VLC (порт 8080) для точного трекинга позиции и состояния. Дописывает extraintf=http в секцию [core] и сгенерированный пароль в [lua] секцию vlcrc (Windows: %APPDATA%\\vlc\\vlcrc; macOS: ~/Library/Preferences/org.videolan.vlc/vlcrc; Linux: ~/.config/vlc/vlcrc). Пароль читается адаптером прямо из vlcrc — копировать никуда не нужно. Обратимо.',
+  description: 'Enable VLC HTTP interface for exact position tracking.',
 
   async isSupported() {
     // vlcrc-based config works the same on Windows, macOS, Linux.
@@ -98,8 +97,8 @@ export const vlcHttpInterfaceAction: SetupAction = {
     if (isRunning) {
       return {
         blocked: true,
-        reason:
-          'Закройте VLC перед изменением настроек — иначе он может перезаписать наши изменения при выходе.',
+        reasonCode: 'player-running',
+        reason: 'Close VLC before changing settings — it may overwrite our changes on exit.',
       }
     }
     return { blocked: false }

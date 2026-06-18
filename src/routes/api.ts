@@ -632,7 +632,7 @@ export async function apiRoutes(fastify: FastifyInstance, ctx: ApiContext): Prom
       } catch (err) {
         if (err instanceof SetupBlockedError) {
           reply.code(409)
-          return { status: 'blocked', reason: err.message }
+          return { status: 'blocked', reason: err.message, reasonCode: err.code }
         }
         if (err instanceof SetupUnsupportedError) {
           reply.code(400)
