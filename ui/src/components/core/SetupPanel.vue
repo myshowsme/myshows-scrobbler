@@ -11,13 +11,34 @@ import {
 } from '../../api'
 import type { SourceType } from '../../types'
 
-// AppShell owns the config; the setup card only triggers the side effect of
-// enabling/disabling the matching source so the adapter actually starts.
 const emit = defineEmits<{
   'source-toggle': [player: SourceType, enabled: boolean]
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
+
+const PLAYER_LABELS: Partial<Record<SourceType, string>> = {
+  vlc: 'VLC',
+  mpv: 'mpv',
+  iina: 'IINA',
+  mpc: 'MPC',
+}
+
+function playerLabel(player: SourceType): string {
+  return PLAYER_LABELS[player] ?? player
+}
+
+function actionDescription(action: SetupActionInfo): string {
+  const key = `setup.actions.${action.id}.description`
+  return te(key) ? t(key) : action.description
+}
+
+function failureText(res: { reason?: string; reasonCode?: string }, player: SourceType): string {
+  if (res.reasonCode) {
+    return t(`setup.reason.${res.reasonCode}`, { name: playerLabel(player) })
+  }
+  return res.reason ?? t('setup.result.failed')
+}
 
 const actions = ref<SetupActionInfo[]>([])
 const loading = ref(true)
@@ -73,7 +94,7 @@ async function confirmEnable(): Promise<void> {
   try {
     const res = await applySetupAction(action.id)
     if (res.status !== 'success') {
-      results.value[action.id] = { kind: 'error', text: res.reason ?? 'failed' }
+      results.value[action.id] = { kind: 'error', text: failureText(res, action.player) }
       return
     }
     emit('source-toggle', action.player, true)
@@ -96,7 +117,7 @@ async function disable(action: SetupActionInfo): Promise<void> {
   try {
     const res = await restoreSetupAction(action.id, action.activeSnapshotId)
     if (res.status !== 'success') {
-      results.value[action.id] = { kind: 'error', text: res.reason ?? 'failed' }
+      results.value[action.id] = { kind: 'error', text: failureText(res, action.player) }
       return
     }
     emit('source-toggle', action.player, false)
@@ -156,7 +177,7 @@ function fmt(value: string | number | null): string {
               {{ statusLabel(action) }}
             </span>
           </div>
-          <p class="SetupCard__desc">{{ action.description }}</p>
+          <p class="SetupCard__desc">{{ actionDescription(action) }}</p>
           <p
             v-if="results[action.id]"
             class="SetupCard__result"

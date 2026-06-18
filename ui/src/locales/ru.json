@@ -149,7 +149,28 @@
       "applied": "Применено. Перезапустите плеер — затем подключится.",
       "restored": "Отключено, прежняя настройка восстановлена.",
       "forceRestored": "Отключено. Прежние значения не сохранились — настройки плеера очищены до значений по умолчанию.",
-      "error": "Ошибка: {message}"
+      "error": "Ошибка: {message}",
+      "failed": "Ошибка"
+    },
+    "actions": {
+      "vlc-http-interface": {
+        "description": "Включает HTTP API VLC (порт 8080) для точного трекинга позиции и состояния. Дописывает extraintf=http в секцию [core] и сгенерированный пароль в [lua] секцию vlcrc (Windows: %APPDATA%\\vlc\\vlcrc; macOS: ~/Library/Preferences/org.videolan.vlc/vlcrc; Linux: ~/.config/vlc/vlcrc). Пароль читается адаптером прямо из vlcrc — копировать никуда не нужно. Обратимо."
+      },
+      "mpv-ipc": {
+        "description": "Включает JSON IPC mpv для точного трекинга позиции и состояния. Дописывает строку `input-ipc-server=<сокет>` в mpv.conf. mpv нужно перезапустить, чтобы изменение вступило в силу. Обратимо."
+      },
+      "iina-ipc": {
+        "description": "Включает JSON IPC встроенного в IINA mpv для точного трекинга позиции, паузы и перемотки. Прописывает `input-ipc-server=<сокет>` в настройки IINA (Advanced → mpv options). IINA нужно закрыть перед применением и запустить заново после. Обратимо."
+      },
+      "mpc-hc-web-interface": {
+        "description": "Включает HTTP API MPC-HC (порт 13579) для точного трекинга позиции и состояния. Записывает EnableWebServer=1 и WebServerPort=13579 в HKCU\\Software\\MPC-HC\\MPC-HC\\Settings. Обратимо."
+      },
+      "mpc-be-web-interface": {
+        "description": "Включает HTTP API MPC-BE (порт 13579) для точного трекинга позиции и состояния. Записывает EnableWebServer=1 и Port=13579 в HKCU\\Software\\MPC-BE\\WebServer. Обратимо."
+      }
+    },
+    "reason": {
+      "player-running": "Закройте {name} перед изменением настроек — иначе он может перезаписать наши изменения при выходе. После этого откройте его снова."
     }
   },
   "events": {

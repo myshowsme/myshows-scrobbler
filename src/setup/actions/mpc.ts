@@ -80,7 +80,8 @@ function buildMpcAction(variant: MpcVariant): SetupAction {
       if (isRunning) {
         return {
           blocked: true,
-          reason: `Закройте ${variant.name.replace(' Web Interface', '')} перед изменением настроек — иначе он перезапишет наши изменения при выходе.`,
+          reasonCode: 'player-running',
+          reason: `Close ${variant.name.replace(' Web Interface', '')} before changing settings — it will overwrite our changes on exit.`,
         }
       }
       return { blocked: false }
@@ -147,8 +148,7 @@ function buildMpcAction(variant: MpcVariant): SetupAction {
 export const mpcHcWebInterfaceAction: SetupAction = buildMpcAction({
   id: 'mpc-hc-web-interface',
   name: 'MPC-HC Web Interface',
-  description:
-    'Включает HTTP API MPC-HC (порт 13579) для точного трекинга позиции и состояния. Записывает EnableWebServer=1 и WebServerPort=13579 в HKCU\\Software\\MPC-HC\\MPC-HC\\Settings. Обратимо.',
+  description: 'Enable MPC-HC web interface for exact position tracking.',
   registryKey: MPC_HC_KEY,
   portProperty: 'WebServerPort',
   processPattern: /mpc-hc/i,
@@ -157,8 +157,7 @@ export const mpcHcWebInterfaceAction: SetupAction = buildMpcAction({
 export const mpcBeWebInterfaceAction: SetupAction = buildMpcAction({
   id: 'mpc-be-web-interface',
   name: 'MPC-BE Web Interface',
-  description:
-    'Включает HTTP API MPC-BE (порт 13579) для точного трекинга позиции и состояния. Записывает EnableWebServer=1 и Port=13579 в HKCU\\Software\\MPC-BE\\WebServer. Обратимо.',
+  description: 'Enable MPC-BE web interface for exact position tracking.',
   registryKey: MPC_BE_KEY,
   portProperty: 'Port',
   processPattern: /mpc-be/i,

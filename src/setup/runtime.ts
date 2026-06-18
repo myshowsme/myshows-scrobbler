@@ -9,9 +9,13 @@ import type { SetupAction, SetupSnapshot, SetupChange } from './types.js'
  */
 
 export class SetupBlockedError extends Error {
-  constructor(message: string) {
+  /** Stable code the UI maps to a localized message (`setup.reason.<code>`). */
+  readonly code?: string
+
+  constructor(message: string, code?: string) {
     super(message)
     this.name = 'SetupBlockedError'
+    this.code = code
   }
 }
 
@@ -48,7 +52,10 @@ export async function applySetup(action: SetupAction): Promise<ApplyResult> {
   if (action.guard) {
     const guard = await action.guard()
     if (guard.blocked) {
-      throw new SetupBlockedError(guard.reason ?? `Setup action "${action.id}" blocked`)
+      throw new SetupBlockedError(
+        guard.reason ?? `Setup action "${action.id}" blocked`,
+        guard.reasonCode,
+      )
     }
   }
 

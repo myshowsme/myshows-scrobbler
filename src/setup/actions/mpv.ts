@@ -229,8 +229,7 @@ export const mpvIpcSetupAction: SetupAction = {
   id: 'mpv-ipc',
   player: 'mpv',
   name: 'mpv JSON IPC',
-  description:
-    'Включает JSON IPC mpv для точного трекинга позиции и состояния. Дописывает строку `input-ipc-server=<сокет>` в mpv.conf. mpv нужно перезапустить, чтобы изменение вступило в силу. Обратимо.',
+  description: 'Enable mpv JSON IPC for exact position tracking.',
 
   async isSupported() {
     // mpv is cross-platform; the IPC mechanism works on win32 (named pipe) and
