@@ -84,8 +84,7 @@ export const iinaIpcSetupAction: SetupAction = {
   id: 'iina-ipc',
   player: 'iina',
   name: 'IINA JSON IPC',
-  description:
-    'Включает JSON IPC встроенного в IINA mpv для точного трекинга позиции, паузы и перемотки. Прописывает `input-ipc-server=<сокет>` в настройки IINA (Advanced → mpv options). IINA нужно закрыть перед применением и запустить заново после. Обратимо.',
+  description: 'Enable IINA JSON IPC for exact position tracking.',
 
   async isSupported() {
     return process.platform === 'darwin' && (await iinaInstalled())
@@ -97,8 +96,9 @@ export const iinaIpcSetupAction: SetupAction = {
     if (running) {
       return {
         blocked: true,
+        reasonCode: 'player-running',
         reason:
-          'IINA запущена. Закройте её перед применением — при выходе она перезапишет свои настройки. После применения откройте IINA снова.',
+          'Close IINA before applying — it overwrites its settings on exit. Reopen it afterwards.',
       }
     }
     return { blocked: false }

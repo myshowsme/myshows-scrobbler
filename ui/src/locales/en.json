@@ -149,7 +149,28 @@
       "applied": "Applied. Restart the player, then it will connect.",
       "restored": "Disabled and restored to the previous setting.",
       "forceRestored": "Disabled. The previous values were not saved — the player's settings were reset to defaults.",
-      "error": "Failed: {message}"
+      "error": "Failed: {message}",
+      "failed": "Failed"
+    },
+    "actions": {
+      "vlc-http-interface": {
+        "description": "Enables VLC's HTTP API (port 8080) for exact position and state tracking. Adds extraintf=http to the [core] section and a generated password to the [lua] section of vlcrc (Windows: %APPDATA%\\vlc\\vlcrc; macOS: ~/Library/Preferences/org.videolan.vlc/vlcrc; Linux: ~/.config/vlc/vlcrc). The adapter reads the password straight from vlcrc — no need to copy it anywhere. Reversible."
+      },
+      "mpv-ipc": {
+        "description": "Enables mpv's JSON IPC for exact position and state tracking. Appends an `input-ipc-server=<socket>` line to mpv.conf. mpv must be restarted for the change to take effect. Reversible."
+      },
+      "iina-ipc": {
+        "description": "Enables the JSON IPC of IINA's built-in mpv for exact position, pause and seek tracking. Writes `input-ipc-server=<socket>` into IINA's settings (Advanced → mpv options). IINA must be closed before applying and reopened afterwards. Reversible."
+      },
+      "mpc-hc-web-interface": {
+        "description": "Enables MPC-HC's HTTP API (port 13579) for exact position and state tracking. Writes EnableWebServer=1 and WebServerPort=13579 to HKCU\\Software\\MPC-HC\\MPC-HC\\Settings. Reversible."
+      },
+      "mpc-be-web-interface": {
+        "description": "Enables MPC-BE's HTTP API (port 13579) for exact position and state tracking. Writes EnableWebServer=1 and Port=13579 to HKCU\\Software\\MPC-BE\\WebServer. Reversible."
+      }
+    },
+    "reason": {
+      "player-running": "Close {name} before changing settings — otherwise it may overwrite our changes on exit. Reopen it afterwards."
     }
   },
   "events": {

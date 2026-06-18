@@ -41,8 +41,14 @@ export interface SetupChange {
 export interface PlayerGuardResult {
   /** True if we should refuse to apply (e.g. the player is running). */
   blocked: boolean
-  /** User-facing reason when blocked. */
+  /** User-facing reason when blocked. English fallback; the UI prefers `reasonCode`. */
   reason?: string
+  /**
+   * Stable, language-agnostic code for the block reason (e.g. `player-running`).
+   * The UI maps it to a localized string (`setup.reason.<code>`); `reason` is
+   * only shown when no code is provided.
+   */
+  reasonCode?: string
 }
 
 export interface SetupAction {

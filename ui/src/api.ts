@@ -197,6 +197,8 @@ export interface SetupApplyResult {
   verified?: boolean
   changes?: SetupChange[]
   reason?: string
+  /** Stable code for a blocked apply (e.g. `player-running`); UI localizes it. */
+  reasonCode?: string
 }
 
 export async function applySetupAction(id: string): Promise<SetupApplyResult> {
