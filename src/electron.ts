@@ -18,6 +18,12 @@ let mainWindow: InstanceType<typeof BrowserWindow> | null = null
 let tray: InstanceType<typeof Tray> | null = null
 let isQuitting = false
 let didRequestQuit = false
+// Set while an auto-update install is shutting the app down. electron-updater's
+// quitAndInstall() spawns the installer and then calls app.quit(); our
+// `before-quit` handler normally preventDefault()s that to route quits through
+// requestQuit(). This flag tells before-quit to let the quit through so the
+// installer isn't left waiting forever (the Windows "Update does nothing" bug).
+let installingUpdate = false
 let mainUrl = ''
 let stopServer: (() => Promise<void>) | null = null
 
@@ -254,20 +260,29 @@ function createUpdateController(): {
   start: (logger: Logger) => void
 } {
   const skipped = loadSkippedUpdates()
+  // Captured once start(logger) runs. Without it, a rejected downloadUpdate()
+  // is swallowed silently — which looks exactly like "clicking Update does
+  // nothing" with no trace to debug from.
+  let updateLogger: Logger | null = null
 
   const controller: UpdateController = {
     getStatus: () => ({ ...updateStatus }),
     install: () => {
       if (!updateStatus.version) {
+        updateLogger?.warn('Update install requested but no version is available')
         return
       }
       // All platforms self-install: download the update, then quitAndInstall on
       // `update-downloaded`. macOS works too because release builds are signed
       // + notarized (Squirrel.Mac requires a valid signature) and ship a `zip`
       // target alongside the dmg.
+      updateLogger?.info(`Downloading update ${updateStatus.version}...`)
       updateStatus = { ...updateStatus, downloading: true }
-      void autoUpdater.downloadUpdate().catch(() => {
+      void autoUpdater.downloadUpdate().catch((err) => {
         updateStatus = { ...updateStatus, downloading: false }
+        updateLogger?.warn(
+          `Update download failed: ${err instanceof Error ? err.message : String(err)}`,
+        )
       })
     },
     skip: () => {
@@ -280,6 +295,7 @@ function createUpdateController(): {
   }
 
   const start = (logger: Logger): void => {
+    updateLogger = logger
     if (!app.isPackaged) {
       return
     }
@@ -317,9 +333,29 @@ function createUpdateController(): {
         })
       }
     })
-    // Win/Linux: once the user opted in and the download finished, install it.
+    // Once the download finishes, install it. We drive the shutdown ourselves:
+    // quitAndInstall() spawns the installer and then calls app.quit(), but this
+    // app's `before-quit` handler preventDefault()s quits to route them through
+    // requestQuit() (graceful tray shutdown). That preventDefault cancels
+    // electron-updater's quit, leaving the Windows installer waiting for an exit
+    // that never comes — the "clicking Update does nothing" bug. Setting
+    // `installingUpdate` lets before-quit pass the quit through; we stop the
+    // server first, then hand off to electron-updater.
     autoUpdater.on('update-downloaded', () => {
-      autoUpdater.quitAndInstall()
+      logger.info('Update downloaded — stopping server and installing')
+      installingUpdate = true
+      isQuitting = true
+      void (async () => {
+        try {
+          await stopServer?.()
+        } catch (err) {
+          logger.warn(
+            `Server stop before update install failed: ${err instanceof Error ? err.message : String(err)}`,
+          )
+        } finally {
+          autoUpdater.quitAndInstall()
+        }
+      })()
     })
 
     const check = (): void => {
@@ -402,7 +438,10 @@ app.on('activate', () => {
 app.on('before-quit', (event) => {
   isQuitting = true
 
-  if (didRequestQuit) {
+  // Already shutting down via requestQuit(), or electron-updater is installing
+  // an update (it stopped the server and now needs the app to actually quit so
+  // the installer can run) — let the quit proceed.
+  if (didRequestQuit || installingUpdate) {
     return
   }
 

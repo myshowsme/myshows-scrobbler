@@ -3,13 +3,20 @@
 # ── Build stage ─────────────────────────────────────────────────────────────
 # Full toolchain — installs dev deps, runs vite-plus to compile the server
 # and the UI into /app/dist.
-FROM node:22-alpine AS builder
+#
+# Alpine (musl) base. koffi ships prebuilt .node binaries (@koromix/koffi-*)
+# linked against glibc, so on musl it can't load them and its install script
+# compiles from source instead — hence cmake/make/g++/python3 here. That musl
+# build of koffi is non-functional at runtime, but it never runs: koffi is
+# Windows-only (the PotPlayer probe) and src/utils/win32-bridge.ts requires it
+# lazily, gated on process.platform === 'win32', so it's never loaded in this
+# Linux image. We just need the install to succeed.
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# libstdc++ is required for native modules (koffi prebuilds on alpine).
-RUN apk add --no-cache libstdc++ \
-  && npm install -g vite-plus@0.1.19
+RUN apk add --no-cache libstdc++ git cmake make g++ python3 \
+  && npm install -g vite-plus@0.2.1
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN vp install --frozen-lockfile
@@ -20,10 +27,24 @@ COPY . .
 
 RUN vp run build:all
 
+# ── Prod-deps stage ─────────────────────────────────────────────────────────
+# Production node_modules only, built once here so the runtime stage can copy
+# them in without carrying the compiler toolchain. Same koffi caveat as above:
+# it compiles (uselessly) but is never loaded on Linux.
+FROM node:24-alpine AS proddeps
+
+WORKDIR /app
+
+RUN apk add --no-cache libstdc++ git cmake make g++ python3 \
+  && npm install -g vite-plus@0.2.1
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN vp install --frozen-lockfile --prod
+
 # ── Runtime stage ───────────────────────────────────────────────────────────
 # Lean image — only what's needed to run `node dist/server/index.mjs`. No
-# vite-plus, no source tree.
-FROM node:22-alpine
+# vite-plus, no compiler toolchain, no source tree.
+FROM node:24-alpine
 
 WORKDIR /app
 
@@ -37,23 +58,18 @@ ENV PORT=3000
 ENV ENABLE_UI=true
 ENV CONFIG_PATH=/data/config.json
 
-RUN apk add --no-cache libstdc++ tini
-
-# Non-root user owns the app dir and the /data volume mount point.
-RUN addgroup -g 1001 -S nodejs \
-  && adduser -S nodejs -u 1001 \
+# libstdc++ for any native module that needs it; tini reaps zombies / forwards
+# signals; wget backs the HEALTHCHECK below.
+RUN apk add --no-cache libstdc++ tini wget \
+  && addgroup -g 1001 -S nodejs \
+  && adduser -S nodejs -u 1001 -G nodejs \
   && mkdir -p /data \
   && chown nodejs:nodejs /data
 
-# Production deps only — dev deps were used in the builder stage and stay
-# there. We also drop the global vite-plus install: the runtime just calls
-# `node`, not `vp`.
+# Production deps (incl. native binaries) prebuilt in the proddeps stage, plus
+# the compiled app and the runtime probe scripts.
+COPY --from=proddeps /app/node_modules ./node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN npm install -g vite-plus@0.1.19 \
-  && vp install --frozen-lockfile --prod \
-  && npm uninstall -g vite-plus \
-  && npm cache clean --force
-
 COPY --from=builder /app/dist ./dist
 # Runtime probes spawn PowerShell / osascript scripts. Only macos-osa-probe.js
 # is exercised on the platforms this image runs on, but copying the whole

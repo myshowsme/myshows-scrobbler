@@ -1,21 +1,31 @@
 /**
  * Win32 FFI bridge — koffi bindings for the user32.dll calls we need.
  *
- * Loaded lazily on the first use so this module imports cleanly on non-Windows
- * platforms (where koffi can still be required but the actual `koffi.load` of
- * user32.dll would fail). All exported helpers throw on non-win32.
+ * koffi is loaded lazily (via require) on first use, and only on Windows. The
+ * static `import` is intentionally avoided: koffi is a native addon, and merely
+ * importing it loads its `.node` binary into the process — which is pure
+ * overhead on non-Windows hosts (its only consumer is the Windows PotPlayer
+ * probe) and outright fails to load on musl/Alpine. Deferring the require keeps
+ * the server bootable on glibc *and* musl, with no koffi load on Linux/macOS at
+ * all. All exported helpers throw on non-win32.
  *
  * Currently only the PotPlayer precise probe uses this. Other Win32 needs
  * (SMTC, MPC IPC if it ever becomes feasible) get added here as they appear.
  */
 
-import koffi from 'koffi'
+import { createRequire } from 'node:module'
 
 const isWindows = process.platform === 'win32'
 
-type KoffiLib = ReturnType<typeof koffi.load>
+// Type-only — `typeof import(...)` is erased by the compiler and does NOT emit
+// a runtime import, so the native addon stays unloaded until ensureBound().
+type KoffiModule = (typeof import('koffi'))['default']
+type KoffiLib = ReturnType<KoffiModule['load']>
 type KoffiFunc = ReturnType<KoffiLib['func']>
 
+const require = createRequire(import.meta.url)
+
+let koffi: KoffiModule | null = null
 let user32Lib: KoffiLib | null = null
 let _findWindowW: KoffiFunc | null = null
 let _sendMessageW: KoffiFunc | null = null
@@ -26,6 +36,9 @@ function ensureBound(): void {
   }
   if (!isWindows) {
     throw new Error('win32-bridge: Windows-only API; current platform is ' + process.platform)
+  }
+  if (!koffi) {
+    koffi = require('koffi') as KoffiModule
   }
   if (!user32Lib) {
     user32Lib = koffi.load('user32.dll')
