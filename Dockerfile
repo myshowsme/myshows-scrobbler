@@ -76,7 +76,10 @@ COPY --from=builder /app/dist ./dist
 # scripts dir keeps path resolution behaviour identical to a bare-metal install.
 COPY --from=builder /app/scripts ./scripts
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Strip CR in case the file was checked out with CRLF on Windows — otherwise
+# the shebang becomes `#!/bin/sh\r` and tini fails with "No such file or directory".
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+  && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER nodejs
 
