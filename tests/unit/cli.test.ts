@@ -12,6 +12,8 @@ const baseConfig: AppConfig = {
   myshowsToken: '',
   myshowsUrl: 'https://myshows.me/scrobble',
   scrobblePercent: 80,
+  minDurationMinutes: 5,
+  stopAtThreshold: true,
   logLevel: 'info',
   interceptOnly: false,
   sources: [],

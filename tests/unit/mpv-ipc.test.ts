@@ -134,10 +134,11 @@ describe('buildEvent', () => {
     audioTitle: null,
     audioCodec: null,
     audioChannelCount: null,
-    videoWidth: null,
-    videoHeight: null,
+    videoWidth: 1920,
+    videoHeight: 1080,
     videoGamma: null,
     doviProfile: null,
+    videoAlbumart: null,
     mpvVersion: null,
   }
 
@@ -180,8 +181,35 @@ describe('buildEvent', () => {
         videoHeight: null,
         videoGamma: null,
         doviProfile: null,
+        videoAlbumart: null,
         mpvVersion: null,
       },
+      'progress',
+    )
+    expect(event).toBeNull()
+  })
+
+  it('returns null for an audio-only file (music)', () => {
+    const event = buildEvent(
+      {
+        ...base,
+        path: 'D:\\Music\\Pink.Floyd.-.Time.flac',
+        mediaTitle: 'Time',
+        videoWidth: null,
+        videoHeight: null,
+        videoGamma: null,
+        doviProfile: null,
+        audioCodec: 'flac',
+        audioChannelCount: 2,
+      },
+      'progress',
+    )
+    expect(event).toBeNull()
+  })
+
+  it('returns null for a song whose only video track is cover art', () => {
+    const event = buildEvent(
+      { ...base, audioCodec: 'mp3', videoWidth: 600, videoHeight: 600, videoAlbumart: true },
       'progress',
     )
     expect(event).toBeNull()

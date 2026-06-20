@@ -63,6 +63,15 @@ describe('isSmtcPlayback', () => {
     expect(isSmtcPlayback({ ...validPayload, albumTitle: 42 })).toBe(false)
     expect(isSmtcPlayback({ ...validPayload, albumTitle: null })).toBe(false)
   })
+
+  it('accepts the optional playbackType field but tolerates its absence', () => {
+    // Present (current probe).
+    expect(isSmtcPlayback({ ...validPayload, playbackType: 'Music' })).toBe(true)
+    // Absent (older packaged probe script) — still valid.
+    expect(isSmtcPlayback(validPayload)).toBe(true)
+    // Wrong type is rejected.
+    expect(isSmtcPlayback({ ...validPayload, playbackType: 2 })).toBe(false)
+  })
 })
 
 describe('SMTC_SKIP_PLAYERS', () => {

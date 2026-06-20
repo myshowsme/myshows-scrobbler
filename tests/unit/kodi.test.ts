@@ -100,6 +100,25 @@ describe('KodiAdapter polling diff', () => {
     })
   })
 
+  it('ignores a musicvideo playing in the video player', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = makeAdapter(emitted)
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    fetchMock
+      .mockResolvedValueOnce(rpcResponse([{ playerid: 1, playertype: 'internal', type: 'video' }]))
+      .mockResolvedValueOnce(
+        rpcResponse({ item: { ...movieItem, type: 'musicvideo', label: 'Some Clip' } }),
+      )
+      .mockResolvedValueOnce(
+        rpcResponse({ time: timeAt(30), totaltime: timeAt(200), percentage: 15, speed: 1 }),
+      )
+
+    await tick(adapter)
+
+    expect(emitted).toHaveLength(0)
+  })
+
   it('enriches progress from Kodi item metadata', async () => {
     const emitted: NormalizedEvent[] = []
     const adapter = makeAdapter(emitted)

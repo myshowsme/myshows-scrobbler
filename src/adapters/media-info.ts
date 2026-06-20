@@ -149,3 +149,15 @@ export function containerFromFile(filePath?: string): string | null {
 export function mediaInfoOrNull(info: MediaInfo): MediaInfo | null {
   return Object.values(info).some((value) => value != null) ? info : null
 }
+
+/**
+ * True only for content MyShows can scrobble. Sources report many other kinds
+ * (`track`/`song`/`musicvideo`/`clip`/`photo`/`audio`/…); without this guard the
+ * adapters' `normalizeType` helpers would silently coerce them all to `movie`.
+ * Case-insensitive so it works for Plex/Kodi (lowercase) and Jellyfin/Emby
+ * (PascalCase) alike.
+ */
+export function isScrobblableType(type: string | undefined): boolean {
+  const t = type?.toLowerCase()
+  return t === 'movie' || t === 'episode'
+}

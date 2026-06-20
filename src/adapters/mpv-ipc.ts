@@ -37,9 +37,28 @@ export function resolveMpvSocket(rawUrl: string): string {
 }
 
 /**
+ * True when the snapshot is positively audio-only: mpv reports an audio track
+ * but no real video (cover art counts as no video). Keeps music out of the
+ * scrobble feed. A still-loading video also reports no params, so we only call
+ * it music when an audio track is actually present — better to keep a real
+ * video than to drop one.
+ */
+export function isAudioOnly(props: MpvProperties): boolean {
+  if (props.videoAlbumart === true) {
+    return true
+  }
+  const hasVideo =
+    props.videoWidth != null ||
+    props.videoHeight != null ||
+    props.videoGamma != null ||
+    props.doviProfile != null
+  return !hasVideo && props.audioCodec != null
+}
+
+/**
  * Build a NormalizedEvent from an mpv property snapshot. Pure — no IPC, no
  * state — so the data path is unit-testable. Returns null when there's no
- * file loaded (idle mpv).
+ * file loaded (idle mpv) or the file is music.
  */
 export function buildEvent(
   props: MpvProperties,
@@ -48,6 +67,10 @@ export function buildEvent(
 ): NormalizedEvent | null {
   const pathOrTitle = props.path ?? props.mediaTitle
   if (!pathOrTitle) {
+    return null
+  }
+  // Music (audio-only or cover-art "video") is not a show/movie — skip it.
+  if (isAudioOnly(props)) {
     return null
   }
   const parsed = parseFilename(pathOrTitle)

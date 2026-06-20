@@ -86,10 +86,11 @@ describe('buildEvent source attribution', () => {
     audioTitle: null,
     audioCodec: null,
     audioChannelCount: null,
-    videoWidth: null,
-    videoHeight: null,
+    videoWidth: 1920,
+    videoHeight: 1080,
     videoGamma: null,
     doviProfile: null,
+    videoAlbumart: null,
     mpvVersion: null,
   }
 

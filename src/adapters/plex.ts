@@ -2,7 +2,7 @@ import type { SourceType, NormalizedEvent, PlaybackState, MediaInfo } from '../t
 import { BaseAdapter } from './base.js'
 import { extractDubTeam } from '../utils/dub-team.js'
 import { extractPrefixedId, idsFromPrefixedGuids, legacyIdFields } from './external-ids.js'
-import { hdrFromText } from './media-info.js'
+import { hdrFromText, isScrobblableType } from './media-info.js'
 import { languageToIso } from '../utils/audio-track.js'
 import { msToRuntimeMinutes, percentFromPosition } from './time.js'
 import { fetchWithTimeout } from '../http.js'
@@ -481,10 +481,15 @@ export class PlexAdapter extends BaseAdapter {
     const data = (await response.json()) as PlexSessionsResponse
     const sessions = data.MediaContainer?.Metadata ?? []
 
-    return sessions.map((s) => ({
-      ...s,
-      ratingKey: s.ratingKey || s.key?.split('/').pop() || '',
-    }))
+    // MyShows tracks shows/movies only. Plex `/status/sessions` also surfaces
+    // music (`track`), trailers/extras (`clip`) and photos — drop anything that
+    // isn't a movie or episode so a played track never scrobbles as an episode.
+    return sessions
+      .filter((s) => isScrobblableType((s as { type?: string }).type))
+      .map((s) => ({
+        ...s,
+        ratingKey: s.ratingKey || s.key?.split('/').pop() || '',
+      }))
   }
 
   private async fetchMetadataWithRating(ratingKey: string): Promise<{

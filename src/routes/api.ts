@@ -262,7 +262,13 @@ export async function apiRoutes(fastify: FastifyInstance, ctx: ApiContext): Prom
     Body: Partial<
       Pick<
         AppConfig,
-        'interceptOnly' | 'scrobblePercent' | 'logLevel' | 'myshowsToken' | 'myshowsUrl'
+        | 'interceptOnly'
+        | 'scrobblePercent'
+        | 'minDurationMinutes'
+        | 'stopAtThreshold'
+        | 'logLevel'
+        | 'myshowsToken'
+        | 'myshowsUrl'
       >
     >
   }>('/api/config', async (request, reply) => {
@@ -284,6 +290,12 @@ export async function apiRoutes(fastify: FastifyInstance, ctx: ApiContext): Prom
     }
     if (body.scrobblePercent !== undefined) {
       next.scrobblePercent = body.scrobblePercent
+    }
+    if (body.minDurationMinutes !== undefined) {
+      next.minDurationMinutes = body.minDurationMinutes
+    }
+    if (body.stopAtThreshold !== undefined) {
+      next.stopAtThreshold = !!body.stopAtThreshold
     }
     if (body.logLevel !== undefined) {
       next.logLevel = body.logLevel

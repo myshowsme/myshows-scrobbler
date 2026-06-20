@@ -288,6 +288,14 @@ export function buildEvent(
     return null
   }
 
+  // For a song VLC reports an audio stream and no video. We only drop when
+  // audio is present and video is absent, so a video whose resolution VLC
+  // didn't parse isn't mistaken for music. VLC gives only a basename (no path),
+  // so we can't fall back to an ffprobe check here.
+  if (snapshot.audio != null && snapshot.video == null) {
+    return null
+  }
+
   const parsed = parseFilename(snapshot.filename)
   const state: PlaybackState = snapshot.state === 'paused' ? 'paused' : 'playing'
 

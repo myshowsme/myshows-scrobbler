@@ -43,6 +43,9 @@ const MPV_PROPS = [
   'video-params/h',
   'video-params/gamma',
   'current-tracks/video/dolby-vision-profile',
+  // True when the selected "video" track is just embedded cover art (music
+  // file). Lets us tell a song-with-artwork apart from a real video.
+  'current-tracks/video/albumart',
   // mpv build version, e.g. "mpv v0.41.0-…". Always available.
   'mpv-version',
 ] as const
@@ -76,6 +79,8 @@ export interface MpvProperties {
   videoGamma: string | null
   /** Dolby Vision profile number of the selected video track, when present. */
   doviProfile: number | null
+  /** True when the selected video track is embedded cover art (music file). */
+  videoAlbumart: boolean | null
   /** mpv version string ("mpv v0.41.0" or "v0.41.0" depending on build). */
   mpvVersion: string | null
 }
@@ -100,6 +105,7 @@ function mapResults(raw: Record<string, unknown>): MpvProperties {
     videoHeight: num(raw['video-params/h']),
     videoGamma: str(raw['video-params/gamma']),
     doviProfile: num(raw['current-tracks/video/dolby-vision-profile']),
+    videoAlbumart: bool(raw['current-tracks/video/albumart']),
     mpvVersion: str(raw['mpv-version']),
   }
 }

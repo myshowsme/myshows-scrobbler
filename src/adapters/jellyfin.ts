@@ -2,7 +2,12 @@ import type { SourceType, NormalizedEvent, PlaybackState, MediaInfo } from '../t
 import { BaseAdapter } from './base.js'
 import { extractDubTeam } from '../utils/dub-team.js'
 import { idsFromProviderIds, legacyIdFields } from './external-ids.js'
-import { hdrFromText, mediaInfoOrNull, resolutionFromDimensions } from './media-info.js'
+import {
+  hdrFromText,
+  isScrobblableType,
+  mediaInfoOrNull,
+  resolutionFromDimensions,
+} from './media-info.js'
 import { languageToIso } from '../utils/audio-track.js'
 import { percentFromPosition, ticksToMs, ticksToRuntimeMinutes } from './time.js'
 import { fetchWithTimeout } from '../http.js'
@@ -342,6 +347,6 @@ export class JellyfinAdapter extends BaseAdapter {
     }
 
     const sessions = (await response.json()) as JellyfinSession[]
-    return sessions.filter((s) => s.NowPlayingItem)
+    return sessions.filter((s) => s.NowPlayingItem && isScrobblableType(s.NowPlayingItem.Type))
   }
 }

@@ -37,6 +37,9 @@ describe('PlayerAdapter', () => {
       source: 'system',
     })
     vi.spyOn(mediaDuration, 'getMediaDurationSeconds').mockResolvedValue(2700)
+    // Default: no container probe (real files under test don't exist on disk).
+    // Individual tests override to exercise the audio-only music guard.
+    vi.spyOn(mediaDuration, 'probeFileMedia').mockResolvedValue(null)
     // Default: no precise readings. Individual tests override per-call to
     // exercise the macOS/MPRIS/SMTC override path. All three probes must be
     // mocked, otherwise the test runner on a real OS would hit the live
@@ -97,6 +100,66 @@ describe('PlayerAdapter', () => {
 
     expect(emitted).toHaveLength(2)
     expect(emitted[1]).toMatchObject({ source: 'player', action: 'stopped' })
+  })
+
+  it('does not scrobble an audio-only file (music) detected via process scan', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = makeAdapter(emitted)
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    // ffprobe reports an audio track and no real video stream → it's a song.
+    vi.spyOn(mediaDuration, 'probeFileMedia').mockResolvedValue({
+      audio: { language: null, title: null, codec: 'flac', channels: 2 },
+      video: null,
+    })
+
+    const scan = vi.spyOn(processMonitor, 'scanPlayers')
+    scan.mockResolvedValue({
+      processes: [
+        {
+          pid: 4242,
+          player: 'vlc',
+          startedAt: new Date(Date.now() - 30_000),
+          commandLine: 'vlc /Users/me/Music/Pink.Floyd.-.Time.flac',
+        },
+      ],
+    })
+
+    await tick(adapter)
+    await tick(adapter)
+
+    expect(emitted).toHaveLength(0)
+  })
+
+  it('probes a music file once and does not recreate the session each tick', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = makeAdapter(emitted)
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    const probeSpy = vi.spyOn(mediaDuration, 'probeFileMedia').mockResolvedValue({
+      audio: { language: null, title: null, codec: 'flac', channels: 2 },
+      video: null,
+    })
+
+    vi.spyOn(processMonitor, 'scanPlayers').mockResolvedValue({
+      processes: [
+        {
+          pid: 4242,
+          player: 'vlc',
+          startedAt: new Date(Date.now() - 30_000),
+          commandLine: 'vlc /Users/me/Music/song.flac',
+        },
+      ],
+    })
+
+    await tick(adapter)
+    await tick(adapter)
+    await tick(adapter)
+
+    expect(emitted).toHaveLength(0)
+    // Identified as music on the first tick; later ticks short-circuit before
+    // the session is recreated, so no repeated probe (or "Detected" log spam).
+    expect(probeSpy).toHaveBeenCalledTimes(1)
   })
 
   it('does not emit stop after a single missed tick (lsof flicker tolerance)', async () => {
@@ -713,6 +776,31 @@ describe('PlayerAdapter', () => {
           isPlaying: true,
           positionSeconds: 30,
           durationSeconds: 200,
+        },
+      ])
+
+      await tick(adapter)
+
+      expect(emitted).toHaveLength(0)
+    })
+
+    it('skips SMTC sessions whose PlaybackType is Music (any app)', async () => {
+      const emitted: NormalizedEvent[] = []
+      const adapter = makeAdapter(emitted)
+      ;(adapter as unknown as { running: boolean }).running = true
+
+      vi.spyOn(processMonitor, 'scanPlayers').mockResolvedValueOnce({ processes: [] })
+      vi.spyOn(windowsSmtc, 'probeWindowsSmtc').mockResolvedValueOnce([
+        {
+          // A generic music app not on the by-name skip list.
+          appUserModelId: 'foobar2000.exe',
+          title: 'Time',
+          artist: 'Pink Floyd',
+          albumTitle: 'The Dark Side of the Moon',
+          playbackType: 'Music',
+          isPlaying: true,
+          positionSeconds: 60,
+          durationSeconds: 413,
         },
       ])
 

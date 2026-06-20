@@ -22,12 +22,13 @@ import {
 import {
   getActiveDurationTool,
   getMediaDurationSeconds,
+  isProbedAudioOnly,
   probeFileMedia,
   type FileMediaProbe,
 } from '../utils/media-duration.js'
 import { dubTeamFromTrackTitle, languageToIso, normalizeAudioCodec } from '../utils/audio-track.js'
 import { probeMacosPlayers, type OsaPlayback } from '../utils/macos-osa.js'
-import { probeLinuxMpris, type MprisPlayback } from '../utils/linux-mpris.js'
+import { probeLinuxMpris, type MprisPlayback, type MprisPlayerKind } from '../utils/linux-mpris.js'
 import { probeWindowsSmtc, classifyAumid, type SmtcPlayback } from '../utils/windows-smtc.js'
 import { probeWindowsPotPlayer } from '../utils/windows-potplayer.js'
 import { resolveWindowsFilePath } from '../utils/windows-handle-resolver.js'
@@ -48,6 +49,13 @@ import { resolveWindowsFilePath } from '../utils/windows-handle-resolver.js'
  * internals.
  */
 export const SMTC_SKIP_PLAYERS: PlayerId[] = ['spotify', 'browser']
+
+/**
+ * MPRIS player kinds we ignore — dedicated music players that never carry a
+ * show/movie. Audio files opened in a *video* MPRIS player still get caught by
+ * the downstream ffprobe music guard.
+ */
+export const MPRIS_SKIP_PLAYERS: MprisPlayerKind[] = ['rhythmbox']
 
 /**
  * Sentinel filePath for the PotPlayer SendMessage reading. That probe returns
@@ -131,6 +139,11 @@ async function gatherPreciseSessions(): Promise<PreciseRegistry> {
   }
 
   for (const mp of await probeLinuxMpris()) {
+    // Music players have nothing to scrobble to MyShows. A local audio file
+    // opened in a video player is still caught later by the ffprobe gate.
+    if (MPRIS_SKIP_PLAYERS.includes(mp.player)) {
+      continue
+    }
     // MPRIS may or may not expose `xesam:url`. With a path we merge against
     // the process scan's filePath; without it we merge by player id (same
     // semantics as SMTC below).
@@ -147,6 +160,11 @@ async function gatherPreciseSessions(): Promise<PreciseRegistry> {
     // Drop sources SMTC can't describe well enough to scrobble — see
     // SMTC_SKIP_PLAYERS for the per-player rationale.
     if (SMTC_SKIP_PLAYERS.includes(player)) {
+      continue
+    }
+    // SMTC tells us the media kind directly — drop anything that isn't video
+    // (music apps, photo viewers) regardless of which app reported it.
+    if (s.playbackType === 'Music' || s.playbackType === 'Image') {
       continue
     }
     // Skip empty-title sessions (nothing to scrobble) and zero-duration
@@ -384,12 +402,12 @@ export class PlayerAdapter extends BaseAdapter {
    */
   private firstSessionByPid = new Map<number, string>()
   /**
-   * sessionIds that have already emitted a final 'stopped' via uptime
-   * saturation. We refuse to recreate them on subsequent polls — otherwise
-   * an MPC left open for 24h with the same file would generate one false
-   * "watched" scrobble per duration-of-wall-clock. Cleared when the pid
-   * actually disappears, or the user opens a different file (different
-   * sessionId).
+   * sessionIds we're done with and won't recreate on later polls. Two reasons
+   * land here: a session that emitted its final 'stopped' via uptime saturation
+   * (otherwise an MPC left open for 24h would scrobble the same file once per
+   * wall-clock duration), and a session we identified as music (so we don't
+   * re-probe and re-log a song every tick). Cleared when the pid disappears or
+   * the user opens a different file (different sessionId).
    */
   private completedSessionIds = new Set<string>()
   private warnedNoTool = false
@@ -534,11 +552,18 @@ export class PlayerAdapter extends BaseAdapter {
         this.touchSession(session, preciseHit)
       }
 
+      // It's a song, not a show or movie (the probe found audio but no real
+      // video). Retire it so we don't re-detect and re-log it every tick, and
+      // never emit anything for it.
+      if (isProbedAudioOnly(session.probe)) {
+        this.retireSession(sessionId)
+        continue
+      }
+
       // Saturation closes the session as 'stopped' instead of 'progress'.
       // emitScrobble is wrapped in the same try/catch as the progress path.
       if (session.uptimeSaturated) {
-        this.completedSessionIds.add(sessionId)
-        this.sessions.delete(sessionId)
+        this.retireSession(sessionId)
         this.log(
           'info',
           `Uptime saturation: ${session.filePath} (${session.player}) — emitting final 'stopped' and freezing this session. ` +
@@ -625,6 +650,12 @@ export class PlayerAdapter extends BaseAdapter {
         this.completedSessionIds.delete(id)
       }
     }
+  }
+
+  /** Stop tracking a session and refuse to recreate it on later polls. */
+  private retireSession(sessionId: string): void {
+    this.completedSessionIds.add(sessionId)
+    this.sessions.delete(sessionId)
   }
 
   private async startSession(
@@ -725,6 +756,12 @@ export class PlayerAdapter extends BaseAdapter {
     const sessionId = buildOrphanSessionId(precise.player, precise.filePath)
     seen.add(sessionId)
 
+    // Already finished with this one (music, or uptime-saturated) — don't
+    // recreate it.
+    if (this.completedSessionIds.has(sessionId)) {
+      return
+    }
+
     let session = this.sessions.get(sessionId)
     if (!session) {
       session = await this.startOrphanSession(sessionId, ORPHAN_PID, precise)
@@ -732,6 +769,13 @@ export class PlayerAdapter extends BaseAdapter {
     } else {
       session.missedTicks = 0
       this.touchSession(session, precise)
+    }
+
+    // A local song opened in VLC/QuickTime, or an MPRIS orphan pointing at an
+    // audio file — retire it and skip it from here on.
+    if (isProbedAudioOnly(session.probe)) {
+      this.retireSession(sessionId)
+      return
     }
 
     try {

@@ -59,6 +59,14 @@ export interface AppConfig {
   myshowsToken: string
   myshowsUrl?: string
   scrobblePercent: number
+  /** Minimum media length (minutes) to track. Shorter videos are ignored. 0 disables the check. */
+  minDurationMinutes: number
+  /**
+   * When true, send the STOP scrobble as soon as `scrobblePercent` is reached
+   * and stop tracking the title. When false, STOP waits until playback actually
+   * ends (how it worked before this option existed).
+   */
+  stopAtThreshold: boolean
   logLevel: LogLevel
   interceptOnly: boolean
   sources: SourceConfig[]
@@ -133,6 +141,8 @@ export interface RawConfig {
   myshows_token: string
   myshows_url?: string
   scrobble_percent: number
+  min_duration_minutes?: number
+  stop_at_threshold?: boolean
   log_level: string
   intercept_only?: boolean
   sources: RawSourceConfig[]
