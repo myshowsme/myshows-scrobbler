@@ -355,4 +355,229 @@ describe('handleScrobble pipeline', () => {
 
     await fastify.close()
   })
+
+  it('progress crossing scrobblePercent sends STOP, then stops tracking the title', async () => {
+    const server = await buildServer({
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = mockSendScrobble(server)
+
+    await emitVia(server, sampleEpisode({ viewOffset: 282000 })) // 10% → START
+    expect(spy.mock.calls[0][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_START)
+
+    await emitVia(server, sampleEpisode({ viewOffset: 2540000 })) // ~90% → STOP
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(spy.mock.calls[1][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_STOP)
+
+    // Title is no longer tracked.
+    const nowRes = await fastify.inject({ method: 'GET', url: '/api/now-playing' })
+    expect(JSON.parse(nowRes.payload).nowPlaying).toHaveLength(0)
+
+    // Further progress ticks are ignored (no PAUSE spam).
+    await emitVia(server, sampleEpisode({ viewOffset: 2679000 })) // ~95%
+    expect(spy).toHaveBeenCalledTimes(2)
+
+    // The eventual stopped event does not re-send STOP.
+    await emitVia(server, sampleEpisode({ action: 'stopped', viewOffset: 2679000 }))
+    expect(spy).toHaveBeenCalledTimes(2)
+
+    await fastify.close()
+  })
+
+  it('first observed tick already past threshold sends START then STOP', async () => {
+    const server = await buildServer({
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = mockSendScrobble(server)
+
+    await emitVia(server, sampleEpisode({ viewOffset: 2679000 })) // ~95%, never started
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(spy.mock.calls[0][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_START)
+    expect(spy.mock.calls[1][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_STOP)
+
+    await fastify.close()
+  })
+
+  it('videos shorter than minDurationMinutes are ignored entirely', async () => {
+    const server = await buildServer({
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = mockSendScrobble(server)
+
+    const shortClip = { duration: 120000 } // 2 min, below the 5 min default
+
+    await emitVia(server, sampleEpisode({ ...shortClip, viewOffset: 60000 })) // 50% progress
+    await emitVia(server, sampleEpisode({ ...shortClip, action: 'stopped', viewOffset: 108000 })) // 90%
+
+    expect(spy).not.toHaveBeenCalled()
+
+    const nowRes = await fastify.inject({ method: 'GET', url: '/api/now-playing' })
+    expect(JSON.parse(nowRes.payload).nowPlaying).toHaveLength(0)
+
+    const evRes = await fastify.inject({ method: 'GET', url: '/api/events' })
+    expect(JSON.parse(evRes.payload).events).toHaveLength(0)
+
+    await fastify.close()
+  })
+
+  it('stopAtThreshold=false keeps tracking past the threshold (STOP only on stop)', async () => {
+    const server = await buildServer({
+      stop_at_threshold: false,
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = mockSendScrobble(server)
+
+    await emitVia(server, sampleEpisode({ viewOffset: 282000 })) // 10% → START
+    await emitVia(server, sampleEpisode({ viewOffset: 2540000 })) // ~90% → PAUSE, not STOP
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(spy.mock.calls[1][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_PAUSE)
+
+    // Still tracked.
+    const nowRes = await fastify.inject({ method: 'GET', url: '/api/now-playing' })
+    expect(JSON.parse(nowRes.payload).nowPlaying).toHaveLength(1)
+
+    // STOP only fires when playback actually ends.
+    await emitVia(server, sampleEpisode({ action: 'stopped', viewOffset: 2540000 }))
+    expect(spy).toHaveBeenCalledTimes(3)
+    expect(spy.mock.calls[2][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_STOP)
+
+    await fastify.close()
+  })
+
+  it('failed STOP at threshold falls back to PAUSE and retries on the next tick', async () => {
+    const server = await buildServer({
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = vi
+      .spyOn(server.myShowsClient, 'sendScrobble')
+      .mockResolvedValueOnce({ success: true }) // START @10%
+      .mockResolvedValueOnce({ success: false, error: 'network' }) // STOP @90% fails
+      .mockResolvedValue({ success: true }) // PAUSE @90%, then STOP @95%
+
+    await emitVia(server, sampleEpisode({ viewOffset: 282000 })) // 10% → START
+    await emitVia(server, sampleEpisode({ viewOffset: 2540000 })) // ~90% → STOP(fail) → PAUSE
+
+    expect(spy.mock.calls[1][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_STOP)
+    expect(spy.mock.calls[2][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_PAUSE)
+
+    // Not finalized — still tracked.
+    let nowRes = await fastify.inject({ method: 'GET', url: '/api/now-playing' })
+    expect(JSON.parse(nowRes.payload).nowPlaying).toHaveLength(1)
+
+    // Next changed tick retries STOP, which now succeeds → finalized.
+    await emitVia(server, sampleEpisode({ viewOffset: 2679000 })) // ~95% → STOP(ok)
+    expect(spy.mock.calls[3][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_STOP)
+    expect(spy).toHaveBeenCalledTimes(4)
+
+    nowRes = await fastify.inject({ method: 'GET', url: '/api/now-playing' })
+    expect(JSON.parse(nowRes.payload).nowPlaying).toHaveLength(0)
+
+    await fastify.close()
+  })
+
+  it('cleans up now-playing when duration resolves late to under the minimum', async () => {
+    const server = await buildServer({
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = mockSendScrobble(server)
+
+    // Duration unknown on the first tick → tracked.
+    await emitVia(server, sampleEpisode({ duration: null, viewOffset: 0 }))
+    let nowRes = await fastify.inject({ method: 'GET', url: '/api/now-playing' })
+    expect(JSON.parse(nowRes.payload).nowPlaying).toHaveLength(1)
+
+    // Duration resolves to a 2 min clip → key is torn down, board cleared.
+    await emitVia(server, sampleEpisode({ duration: 120000, viewOffset: 60000 }))
+    nowRes = await fastify.inject({ method: 'GET', url: '/api/now-playing' })
+    expect(JSON.parse(nowRes.payload).nowPlaying).toHaveLength(0)
+
+    // Only the first (unknown-duration) tick produced a call; the short one didn't.
+    expect(spy).toHaveBeenCalledTimes(1)
+
+    await fastify.close()
+  })
+
+  it('minDurationMinutes=0 disables the short-video skip', async () => {
+    const server = await buildServer({
+      min_duration_minutes: 0,
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = mockSendScrobble(server)
+
+    await emitVia(server, sampleEpisode({ duration: 120000, viewOffset: 12000 })) // 2 min clip, 10%
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[0][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_START)
+
+    await fastify.close()
+  })
 })

@@ -145,6 +145,9 @@ export async function createServer(options: ServerOptions) {
   const lastBroadcastPercent = new Map<string, number>()
   // Track which sessions have sent SCROBBLE_START to MyShows.
   const startedSessions = new Set<string>()
+  // Sessions already finalized via the threshold rule (STOP sent at >= scrobblePercent
+  // during playback). Further events for these keys are ignored until the session ends.
+  const completedSessions = new Set<string>()
 
   // ── Helpers ──
 
@@ -198,7 +201,40 @@ export async function createServer(options: ServerOptions) {
     const percent = percentOf(event)
     const title = formatTitle(event)
 
+    const currentConfig = getConfig()
+
+    // Ignore very short media (clips, trailers, intros). `duration` is in ms
+    // across all adapters; unknown/zero durations can't be judged, so they pass.
+    const minDurationMs = Math.max(0, currentConfig.minDurationMinutes) * 60_000
+    if (
+      minDurationMs > 0 &&
+      event.duration != null &&
+      event.duration > 0 &&
+      event.duration < minDurationMs
+    ) {
+      // Duration can resolve late (e.g. SMTC/player sources report null first),
+      // so we may already be tracking this key — tear it down so a short clip
+      // never lingers on the now-playing board or leaves orphan state.
+      const wasTracked = nowPlaying.has(key)
+      untrack(key)
+      if (wasTracked) {
+        broadcastNowPlaying()
+      }
+      logger.debug(
+        `Ignored (too short): ${title} ` +
+          `(${(event.duration / 60_000).toFixed(1)}min < ${currentConfig.minDurationMinutes}min)`,
+      )
+      return { status: 'ignored', reason: 'too_short' }
+    }
+
+    const threshold = normalizedThreshold(currentConfig.scrobblePercent)
+
     if (event.action === 'progress') {
+      // Session already finalized at the threshold — stop tracking entirely.
+      if (completedSessions.has(key)) {
+        return { status: 'ignored', reason: 'already_scrobbled' }
+      }
+
       // Anti-spam: skip unless the percent actually moved.
       const last = lastBroadcastPercent.get(key)
       if (
@@ -212,6 +248,46 @@ export async function createServer(options: ServerOptions) {
         }
       }
       lastBroadcastPercent.set(key, percent)
+
+      // Crossed the threshold mid-playback (when enabled): send STOP now and
+      // stop tracking. If the STOP doesn't go through we don't commit — we fall
+      // back to the normal START/PAUSE flow and try again on the next tick that
+      // moves, so a network blip never loses the scrobble.
+      if (currentConfig.stopAtThreshold && percent >= threshold) {
+        // Make sure a START went out first — only matters in the rare case
+        // where the first tick we see is already past the threshold.
+        if (!startedSessions.has(key)) {
+          await sendToMyShows(
+            MYSHOWS_ENDPOINTS.SCROBBLE_START,
+            event,
+            percent,
+            title,
+            currentConfig,
+          )
+          startedSessions.add(key)
+        }
+
+        logger.info(`Completed at ${percent.toFixed(1)}%: ${title}`)
+        const stopped = await sendToMyShows(
+          MYSHOWS_ENDPOINTS.SCROBBLE_STOP,
+          event,
+          percent,
+          title,
+          currentConfig,
+        )
+
+        if (stopped) {
+          untrack(key)
+          completedSessions.add(key)
+          broadcastNowPlaying()
+          return { status: 'stopped' }
+        }
+
+        logger.warn(
+          `Stop at ${percent.toFixed(1)}% failed for ${title} — keeping session, will retry`,
+        )
+        // fall through to standard PAUSE tracking below
+      }
 
       nowPlaying.set(key, {
         key,
@@ -232,19 +308,21 @@ export async function createServer(options: ServerOptions) {
       logger.debug(`${endpoint}: ${title} [${event.state}] ${percent.toFixed(2)}%`)
 
       // Send to MyShows
-      await sendToMyShows(endpoint, event, percent, title)
+      await sendToMyShows(endpoint, event, percent, title, currentConfig)
 
       return { status: endpoint === MYSHOWS_ENDPOINTS.SCROBBLE_START ? 'started' : 'tracking' }
     }
 
     // action === 'stopped' — session ended.
-    nowPlaying.delete(key)
-    lastBroadcastPercent.delete(key)
-    startedSessions.delete(key)
+    const wasCompleted = completedSessions.has(key)
+    untrack(key)
     broadcastNowPlaying()
 
-    const currentConfig = getConfig()
-    const threshold = normalizedThreshold(currentConfig.scrobblePercent)
+    // Already finalized at the threshold during playback — don't STOP twice.
+    if (wasCompleted) {
+      return { status: 'ignored', reason: 'already_scrobbled' }
+    }
+
     const intercept = options.interceptOnly || currentConfig.interceptOnly
 
     if (percent < threshold) {
@@ -262,22 +340,27 @@ export async function createServer(options: ServerOptions) {
 
     logger.info(`Stopped: ${title} (${percent.toFixed(1)}%)`)
 
-    await sendToMyShows(MYSHOWS_ENDPOINTS.SCROBBLE_STOP, event, percent, title)
+    await sendToMyShows(MYSHOWS_ENDPOINTS.SCROBBLE_STOP, event, percent, title, currentConfig)
 
     return { status: 'stopped' }
   }
 
+  /**
+   * Send one scrobble request. Returns true when MyShows accepted it (or we're
+   * in intercept-only mode). A false result lets callers fall back / retry —
+   * the threshold STOP only "commits" on a true result.
+   */
   async function sendToMyShows(
     endpoint: ScrobbleEndpoint,
     event: NormalizedEvent,
     percent: number,
     title: string,
-  ): Promise<void> {
+    config: AppConfig,
+  ): Promise<boolean> {
     const payload = toScrobbleRequest(event, percent)
     logger.debug(`${endpoint} payload: ${JSON.stringify(payload)}`)
 
-    const currentConfig = getConfig()
-    const intercept = options.interceptOnly || currentConfig.interceptOnly
+    const intercept = options.interceptOnly || config.interceptOnly
 
     if (intercept) {
       logger.info(`[Intercept-only] ${endpoint}: ${title}`)
@@ -287,7 +370,7 @@ export async function createServer(options: ServerOptions) {
         status: 'success',
         intercept: true,
       })
-      return
+      return true
     }
 
     if (!myShowsClient.getToken()) {
@@ -299,7 +382,7 @@ export async function createServer(options: ServerOptions) {
         error: 'No token',
         intercept: false,
       })
-      return
+      return false
     }
 
     const result = await myShowsClient.sendScrobble(endpoint, payload)
@@ -317,6 +400,16 @@ export async function createServer(options: ServerOptions) {
     } else {
       logger.error(`${endpoint}: ${title} -> FAIL: ${result.error}`)
     }
+
+    return result.success
+  }
+
+  /** Drop all per-session tracking state for a content key. */
+  function untrack(key: string): void {
+    nowPlaying.delete(key)
+    lastBroadcastPercent.delete(key)
+    startedSessions.delete(key)
+    completedSessions.delete(key)
   }
 
   // ── Bootstrap adapters ──
@@ -327,6 +420,7 @@ export async function createServer(options: ServerOptions) {
     nowPlaying.clear()
     lastBroadcastPercent.clear()
     startedSessions.clear()
+    completedSessions.clear()
     broadcastNowPlaying()
 
     const currentConfig = getConfig()

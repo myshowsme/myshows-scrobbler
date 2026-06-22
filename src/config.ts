@@ -27,13 +27,26 @@ export const DEFAULT_MYSHOWS_URL = 'https://myshows.me/scrobble'
 export const DEFAULT_SOURCE_POLL_INTERVAL = 15000
 export const SERVICE_REQUEST_TIMEOUT_MS = 5000
 
+export const DEFAULT_MIN_DURATION_MINUTES = 5
+export const DEFAULT_STOP_AT_THRESHOLD = true
+
 const DEFAULT_CONFIG: AppConfig = {
   myshowsToken: '',
   myshowsUrl: DEFAULT_MYSHOWS_URL,
   scrobblePercent: 80,
+  minDurationMinutes: DEFAULT_MIN_DURATION_MINUTES,
+  stopAtThreshold: DEFAULT_STOP_AT_THRESHOLD,
   logLevel: 'info',
   interceptOnly: false,
   sources: [],
+}
+
+/** Coerce a possibly-garbage `min_duration_minutes` value to a sane number. */
+function normalizeMinDuration(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return DEFAULT_MIN_DURATION_MINUTES
+  }
+  return value
 }
 
 const DEFAULT_SOURCE: Omit<SourceConfig, 'type'> = {
@@ -77,6 +90,11 @@ function rawToConfig(raw: RawConfig): AppConfig {
     myshowsToken: raw.myshows_token ?? '',
     myshowsUrl: raw.myshows_url ?? DEFAULT_MYSHOWS_URL,
     scrobblePercent: raw.scrobble_percent ?? DEFAULT_CONFIG.scrobblePercent,
+    minDurationMinutes: normalizeMinDuration(raw.min_duration_minutes),
+    stopAtThreshold:
+      typeof raw.stop_at_threshold === 'boolean'
+        ? raw.stop_at_threshold
+        : DEFAULT_CONFIG.stopAtThreshold,
     logLevel: (raw.log_level as LogLevel) ?? DEFAULT_CONFIG.logLevel,
     interceptOnly: raw.intercept_only ?? false,
     sources: (raw.sources ?? []).map(rawSourceToConfig),
@@ -88,6 +106,8 @@ function configToRaw(config: AppConfig): RawConfig {
     myshows_token: config.myshowsToken,
     ...(config.myshowsUrl ? { myshows_url: config.myshowsUrl } : {}),
     scrobble_percent: config.scrobblePercent,
+    min_duration_minutes: config.minDurationMinutes,
+    stop_at_threshold: config.stopAtThreshold,
     log_level: config.logLevel,
     intercept_only: config.interceptOnly,
     sources: config.sources.map(configSourceToRaw),
@@ -105,6 +125,8 @@ function migrateLegacy(data: LegacyConfig & Partial<RawConfig>): RawConfig {
     myshows_token: data.myshows_token ?? '',
     ...(data.myshows_url ? { myshows_url: data.myshows_url } : {}),
     scrobble_percent: data.scrobble_percent ?? DEFAULT_CONFIG.scrobblePercent,
+    min_duration_minutes: data.min_duration_minutes ?? DEFAULT_CONFIG.minDurationMinutes,
+    stop_at_threshold: data.stop_at_threshold ?? DEFAULT_CONFIG.stopAtThreshold,
     log_level: data.log_level ?? DEFAULT_CONFIG.logLevel,
     sources: [],
   }

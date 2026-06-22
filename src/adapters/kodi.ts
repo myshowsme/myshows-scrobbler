@@ -5,6 +5,7 @@ import { idsFromKodiUniqueIds, legacyIdFields, nonEmptyString } from './external
 import {
   containerFromFile,
   hdrFromText,
+  isScrobblableType,
   mediaInfoOrNull,
   resolutionFromDimensions,
 } from './media-info.js'
@@ -357,7 +358,9 @@ export class KodiAdapter extends BaseAdapter {
         ],
       })
 
-      if (itemResult?.item && props) {
+      // Video player can still hold a `musicvideo` (or other non-show item);
+      // MyShows only takes movies and episodes.
+      if (itemResult?.item && props && isScrobblableType(itemResult.item.type)) {
         sessions.push({
           playerId: player.playerid,
           item: itemResult.item,

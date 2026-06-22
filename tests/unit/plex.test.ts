@@ -110,6 +110,31 @@ describe('PlexAdapter polling diff', () => {
     })
   })
 
+  it('ignores non-video sessions (music track, clip, photo)', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = makeAdapter(emitted)
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    const trackSession = {
+      ...episodeSession,
+      sessionKey: 'music1',
+      type: 'track',
+      title: 'Some Song',
+      grandparentTitle: 'Some Artist',
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([trackSession]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted).toHaveLength(0)
+  })
+
   it('emits another progress when viewOffset advances', async () => {
     const emitted: NormalizedEvent[] = []
     const adapter = makeAdapter(emitted)

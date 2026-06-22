@@ -27,6 +27,13 @@ export interface SmtcPlayback {
    * step can opt in per-player without touching the probe again.
    */
   albumTitle: string
+  /**
+   * Media kind the app reports: "Music" | "Video" | "Image" | "Unknown" | "".
+   * Optional/empty when the app doesn't publish it or a packaged build still
+   * ships the older probe script. Used to drop songs/photos without guessing
+   * from the app id.
+   */
+  playbackType?: string
   isPlaying: boolean
   positionSeconds: number
   durationSeconds: number
@@ -106,6 +113,7 @@ export function isSmtcPlayback(value: unknown): value is SmtcPlayback {
     typeof v.title === 'string' &&
     typeof v.artist === 'string' &&
     typeof v.albumTitle === 'string' &&
+    (v.playbackType === undefined || typeof v.playbackType === 'string') &&
     typeof v.isPlaying === 'boolean' &&
     typeof v.positionSeconds === 'number' &&
     typeof v.durationSeconds === 'number'

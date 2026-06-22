@@ -137,6 +137,41 @@ describe('JellyfinAdapter polling diff', () => {
     })
   })
 
+  it('ignores music (Audio) and other non-video item types', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = new JellyfinAdapter(makeConfig('jellyfin'), {
+      onScrobble: async (e) => {
+        emitted.push(e)
+      },
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    const audioSession = {
+      Id: 'sess-audio',
+      UserId: 'user1',
+      PlayState: { PositionTicks: 100_000_000, IsPaused: false },
+      NowPlayingItem: {
+        Id: 'track-1',
+        Name: 'Some Song',
+        Type: 'Audio',
+        RunTimeTicks: 2_000_000_000,
+      },
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/Sessions': () => sessionsResponse([audioSession]),
+        '/Items/track-1': () => itemResponse(audioSession.NowPlayingItem),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted).toHaveLength(0)
+  })
+
   it('emits a stopped event when the session disappears', async () => {
     const emitted: NormalizedEvent[] = []
     const adapter = new JellyfinAdapter(makeConfig('jellyfin'), {

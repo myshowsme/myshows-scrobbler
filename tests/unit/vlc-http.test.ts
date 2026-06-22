@@ -156,6 +156,22 @@ describe('buildEvent', () => {
     expect(event?.title?.toLowerCase()).toContain('breaking')
   })
 
+  it('returns null for an audio-only file (music)', () => {
+    const event = buildEvent(
+      {
+        state: 'playing',
+        positionMs: 60_000,
+        durationMs: 200_000,
+        filename: 'Pink Floyd - Time.flac',
+        version: null,
+        audio: { language: null, description: null, codec: 'flac', channels: 2 },
+        video: null,
+      },
+      'progress',
+    )
+    expect(event).toBeNull()
+  })
+
   it('returns null when filename is empty', () => {
     const event = buildEvent(
       { state: 'stopped', positionMs: 0, durationMs: 0, filename: '', version: null },

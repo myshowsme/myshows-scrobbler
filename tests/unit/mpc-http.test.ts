@@ -108,6 +108,15 @@ describe('buildEvent', () => {
     expect(event?.dubTeam).toBe('Велес')
   })
 
+  it('returns null when the probe shows audio but no video stream (music)', () => {
+    const snapshot = snapshotFromVariables(parseMpcVariables(SAMPLE_HTML))
+    const event = buildEvent(snapshot, 'progress', {
+      audio: { language: null, title: null, codec: 'flac', channels: 2 },
+      video: null,
+    })
+    expect(event).toBeNull()
+  })
+
   it('reports dolby_vision when the probe carries a DV configuration record', () => {
     const snapshot = snapshotFromVariables(parseMpcVariables(SAMPLE_HTML))
     const event = buildEvent(snapshot, 'progress', {

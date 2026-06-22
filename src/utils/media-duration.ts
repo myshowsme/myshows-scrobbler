@@ -177,6 +177,16 @@ export interface FileMediaProbe {
   video: FileVideoInfo | null
 }
 
+/**
+ * True when a probe positively shows audio but no real video stream — i.e. a
+ * music file. Cover art is already excluded upstream (attached-picture streams
+ * are skipped), so `video == null` here means "no actual video track". A null
+ * probe (no path / no tool) is "unknown", not music.
+ */
+export function isProbedAudioOnly(probe: FileMediaProbe | null): boolean {
+  return probe != null && probe.video == null && probe.audio != null
+}
+
 interface FfprobeStream {
   codec_type?: string
   codec_name?: string
@@ -184,7 +194,7 @@ interface FfprobeStream {
   width?: number
   height?: number
   color_transfer?: string
-  disposition?: { default?: number }
+  disposition?: { default?: number; attached_pic?: number }
   tags?: Record<string, string>
   side_data_list?: Array<{ side_data_type?: string }>
 }
@@ -220,7 +230,12 @@ async function probeViaFfprobe(bin: string, filePath: string): Promise<FileMedia
       }
     : null
 
-  const videoStream = streams.find((s) => s.codec_type === 'video')
+  // Ignore attached-picture streams (cover art embedded in music files) — they
+  // are video codecs but not a real video track, so a song must not register
+  // as having video.
+  const videoStream = streams.find(
+    (s) => s.codec_type === 'video' && s.disposition?.attached_pic !== 1,
+  )
   const video: FileVideoInfo | null = videoStream
     ? {
         width: typeof videoStream.width === 'number' ? videoStream.width : null,
@@ -273,6 +288,8 @@ async function probeViaMediainfo(bin: string, filePath: string): Promise<FileMed
       }
     : null
 
+  // No attached-picture filter needed here: mediainfo reports embedded cover
+  // art as an "Image" track, not "Video", so a song never matches this.
   const videoTrack = tracks.find((t) => t['@type'] === 'Video')
   const video: FileVideoInfo | null = videoTrack
     ? {

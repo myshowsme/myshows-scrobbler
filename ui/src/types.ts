@@ -47,6 +47,14 @@ export interface AppConfig {
   myshowsToken: string
   myshowsUrl?: string
   scrobblePercent: number
+  /** Minimum media length (minutes) to track. Shorter videos are ignored. 0 disables the check. */
+  minDurationMinutes: number
+  /**
+   * When true, fire SCROBBLE_STOP as soon as `scrobblePercent` is reached during
+   * playback and stop tracking the title. When false, STOP is only sent when
+   * playback actually ends (the pre-feature behavior).
+   */
+  stopAtThreshold: boolean
   logLevel: LogLevel
   interceptOnly: boolean
   sources: SourceConfig[]
@@ -127,6 +135,13 @@ export interface NormalizedEvent {
   duration: number | null
   viewOffset: number | null
   source: SourceType
+  /**
+   * What to report to MyShows as `source_app` when it should be more specific
+   * than `source`. The generic `player` source uses this to name the actual
+   * player ("potplayer", "wmp") while `source` stays 'player' for routing,
+   * exclusions and session keys. Converter falls back to `source` when unset.
+   */
+  sourceApp?: string | null
   action: PlaybackAction
   state: PlaybackState
   /** Player app version (e.g. "5.94.1") */

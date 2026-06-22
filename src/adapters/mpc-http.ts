@@ -10,7 +10,7 @@ import {
   resolutionFromFilename,
 } from './media-info.js'
 import { dubTeamFromTrackTitle, languageToIso, normalizeAudioCodec } from '../utils/audio-track.js'
-import { probeFileMedia, type FileMediaProbe } from '../utils/media-duration.js'
+import { isProbedAudioOnly, probeFileMedia, type FileMediaProbe } from '../utils/media-duration.js'
 
 /**
  * MPC-HC / MPC-BE / MPC-QT HTTP source.
@@ -146,6 +146,12 @@ export function buildEvent(
   // adapter shouldn't emit phantom events for that case.
   const pathOrName = snapshot.filepath || snapshot.file
   if (!pathOrName) {
+    return null
+  }
+
+  // A song, not a show or movie (probe found audio but no real video stream).
+  // Without a probe (no path or no ffprobe) we can't tell, so we let it through.
+  if (isProbedAudioOnly(probe)) {
     return null
   }
 

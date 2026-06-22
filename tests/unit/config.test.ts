@@ -22,6 +22,8 @@ describe('readConfig / writeConfig', () => {
     const cfg = readConfig()
     expect(cfg.myshowsUrl).toBe('https://myshows.me/scrobble')
     expect(cfg.scrobblePercent).toBe(80)
+    expect(cfg.minDurationMinutes).toBe(5)
+    expect(cfg.stopAtThreshold).toBe(true)
     expect(cfg.logLevel).toBe('info')
     expect(cfg.interceptOnly).toBe(false)
     expect(cfg.sources).toEqual([])
@@ -33,6 +35,8 @@ describe('readConfig / writeConfig', () => {
       myshowsToken: 'tok',
       myshowsUrl: 'https://example.test/api',
       scrobblePercent: 70,
+      minDurationMinutes: 3,
+      stopAtThreshold: false,
       logLevel: 'debug',
       interceptOnly: true,
       sources: [
@@ -51,6 +55,8 @@ describe('readConfig / writeConfig', () => {
     expect(raw.myshows_token).toBe('tok')
     expect(raw.intercept_only).toBe(true)
     expect(raw.scrobble_percent).toBe(70)
+    expect(raw.min_duration_minutes).toBe(3)
+    expect(raw.stop_at_threshold).toBe(false)
     expect(raw.sources[0].url).toBe('http://plex:32400')
     expect(raw.sources[0].poll_interval).toBe(1234)
     expect(raw.sources[0].user_filter).toEqual(['alice'])
@@ -58,6 +64,8 @@ describe('readConfig / writeConfig', () => {
 
     const cfg = readConfig()
     expect(cfg.interceptOnly).toBe(true)
+    expect(cfg.minDurationMinutes).toBe(3)
+    expect(cfg.stopAtThreshold).toBe(false)
     expect(cfg.sources[0].url).toBe('http://plex:32400')
     expect(cfg.sources[0].pollInterval).toBe(1234)
     expect(cfg.sources[0].userFilter).toEqual(['alice'])
@@ -89,6 +97,41 @@ describe('readConfig / writeConfig', () => {
     expect(cfg.sources).toHaveLength(1)
     expect(cfg.sources[0]).not.toHaveProperty('mode')
     expect(cfg.sources[0].type).toBe('plex')
+  })
+
+  it('falls back to defaults for invalid min_duration_minutes / stop_at_threshold', () => {
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        myshows_token: 'tok',
+        myshows_url: 'https://example.test/api',
+        scrobble_percent: 80,
+        min_duration_minutes: 'garbage',
+        stop_at_threshold: 'yes',
+        log_level: 'info',
+        sources: [],
+      }),
+    )
+
+    const cfg = readConfig()
+    expect(cfg.minDurationMinutes).toBe(5)
+    expect(cfg.stopAtThreshold).toBe(true)
+  })
+
+  it('accepts 0 as a valid (disabling) min_duration_minutes', () => {
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        myshows_token: 'tok',
+        myshows_url: 'https://example.test/api',
+        scrobble_percent: 80,
+        min_duration_minutes: 0,
+        log_level: 'info',
+        sources: [],
+      }),
+    )
+
+    expect(readConfig().minDurationMinutes).toBe(0)
   })
 
   it('uses 15 seconds as the default source polling interval', () => {

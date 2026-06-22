@@ -13,6 +13,7 @@
 #       "title": string,
 #       "artist": string,
 #       "albumTitle": string,
+#       "playbackType": string,   # "Music" | "Video" | "Image" | "Unknown" | ""
 #       "isPlaying": boolean,
 #       "positionSeconds": number,
 #       "durationSeconds": number
@@ -95,12 +96,16 @@ foreach ($s in $sessions) {
         $title = ''
         $artist = ''
         $albumTitle = ''
+        $playbackType = ''
         if ($mediaProps) {
             $title = if ($null -ne $mediaProps.Title) { $mediaProps.Title } else { '' }
             $artist = if ($null -ne $mediaProps.Artist) { $mediaProps.Artist } else { '' }
             # Modern Windows Media Player and some streaming apps publish the
             # show name in AlbumTitle (e.g. series title with Title=episode).
             $albumTitle = if ($null -ne $mediaProps.AlbumTitle) { $mediaProps.AlbumTitle } else { '' }
+            # Media kind reported by the app: "Music" / "Video" / "Image" /
+            # "Unknown". Lets us drop songs without guessing from the app id.
+            $playbackType = if ($null -ne $mediaProps.PlaybackType) { $mediaProps.PlaybackType.ToString() } else { '' }
         }
 
         $timeline = $s.GetTimelineProperties()
@@ -121,6 +126,7 @@ foreach ($s in $sessions) {
             title = $title
             artist = $artist
             albumTitle = $albumTitle
+            playbackType = $playbackType
             isPlaying = [bool]$isPlaying
             positionSeconds = $positionSeconds
             durationSeconds = $durationSeconds
