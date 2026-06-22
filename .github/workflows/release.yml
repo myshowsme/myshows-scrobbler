@@ -96,13 +96,23 @@ jobs:
           # when the secrets are unset: electron-builder then falls back to the
           # ad-hoc signature from scripts/after-pack.cjs and skips notarization.
           #
+          # CSC_LINK / CSC_KEY_PASSWORD are electron-builder's *cross-platform*
+          # signing vars, NOT macOS-only. Scope them to the macOS runner: if the
+          # Apple .p12 leaks into the Windows job, electron-builder Authenticode-
+          # signs the NSIS installer with it and writes the Apple cert's CN into
+          # the Windows app-update.yml `publisherName`. That cert chains to Apple's
+          # root (untrusted for Authenticode on Windows), so electron-updater's
+          # post-download signature check fails with ERR_UPDATER_INVALID_SIGNATURE
+          # and every Windows auto-update silently reverts. Windows ships unsigned
+          # (no publisherName) so electron-updater skips the check entirely.
+          #
           #   CSC_LINK                    base64 of the Developer ID .p12
           #   CSC_KEY_PASSWORD            password set when exporting the .p12
           #   APPLE_ID                    Apple ID email (notarization)
           #   APPLE_APP_SPECIFIC_PASSWORD app-specific password for that Apple ID
           #   APPLE_TEAM_ID               10-char Developer Team ID
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
