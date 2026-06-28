@@ -69,6 +69,10 @@
       "subtitle": "VLC, MPC, mpv and others on this computer",
       "hint": "Detects VLC, MPV, MPC, IINA, Infuse, QuickTime and Windows Media Player apps running on the same machine. On macOS, exact position/duration is read directly from VLC and QuickTime via AppleScript; other players fall back to a bundled `ffprobe` and process-uptime estimation."
     },
+    "stremio": {
+      "subtitle": "api.strem.io · cloud library",
+      "hint": "Paste your Stremio authKey from the web.stremio.com browser console: JSON.parse(localStorage.profile).auth.key. Playback from every Stremio client (web, desktop, mobile, TV) is picked up."
+    },
     "status": {
       "checking": "checking…",
       "ok": "connected",

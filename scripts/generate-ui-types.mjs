@@ -11,6 +11,7 @@ const publicExports = new Set([
   'SourceType',
   'SOURCE_TYPES',
   'LOCAL_SOURCE_TYPES',
+  'TOKEN_ONLY_SOURCE_TYPES',
   'LogLevel',
   'SourceConfig',
   'AppConfig',

@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import { checkSource } from '../api'
 import { SOURCE_TYPES, type SourceErrorCode, type SourceType } from '../types'
-import { isLocalSource } from '../utils/source-type'
+import { hasProbeCredentials } from '../utils/source-type'
 
 export type SourceStatusState = 'unknown' | 'checking' | 'ok' | 'error'
 
@@ -55,8 +55,7 @@ export function useSourceStatuses() {
   /** Immediate check (used on mount, on toggle ON). */
   async function checkNow(type: SourceType, url: string, token: string) {
     clearTimer(type)
-    // Local sources have no URL/token — always allow the check to run.
-    if (!isLocalSource(type) && (!url || !token)) {
+    if (!hasProbeCredentials(type, url, token)) {
       setStatus(type, { state: 'unknown' })
       return
     }
@@ -95,7 +94,7 @@ export function useSourceStatuses() {
   /** Debounced check (used on url/token edits). */
   function scheduleCheck(type: SourceType, url: string, token: string) {
     clearTimer(type)
-    if (!url || !token) {
+    if (!hasProbeCredentials(type, url, token)) {
       setStatus(type, { state: 'unknown' })
       return
     }

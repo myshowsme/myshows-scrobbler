@@ -1,5 +1,5 @@
 import type { AppConfig, SourceConfig, SourceType } from '../types.js'
-import { SOURCE_TYPES, isLocalSource } from '../types.js'
+import { SOURCE_TYPES, sourceNeedsUrl } from '../types.js'
 import { DEFAULT_SOURCE_POLL_INTERVAL } from '../config.js'
 import type { CliArgs } from './args.js'
 
@@ -121,8 +121,9 @@ export function validateConfig(config: AppConfig): ConfigValidationIssue[] {
       issues.push({ level: 'warning', message: `Unknown source type: ${source.type} (skipped)` })
       continue
     }
-    // Local sources (e.g. process-scanning `player`) take no URL/token.
-    if (source.enabled && !isLocalSource(source.type) && !source.url.trim()) {
+    // Local sources auto-detect; token-only sources (Stremio) use a fixed
+    // endpoint — only url+token sources warn on an empty URL.
+    if (source.enabled && sourceNeedsUrl(source.type) && !source.url.trim()) {
       issues.push({ level: 'warning', message: `${source.type}: url is empty` })
     }
     if (source.enabled && source.pollInterval < 1) {

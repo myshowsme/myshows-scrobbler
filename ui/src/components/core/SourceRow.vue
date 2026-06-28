@@ -8,7 +8,7 @@ import type { SourceStatus } from '../../composables/useSourceStatuses'
 import type { EmbySignInState } from '../../composables/useEmbySignIn'
 import type { QuickConnectState } from '../../composables/useQuickConnect'
 import type { TokenLookupState } from '../../composables/useTokenLookup'
-import { isLocalSource } from '../../utils/source-type'
+import { isLocalSource, isTokenOnlySource, sourceNeedsUrl } from '../../utils/source-type'
 
 const props = defineProps<{
   type: SourceType
@@ -187,6 +187,9 @@ const collapsedSubtitle = (s: SourceType, value: string) => {
   if (isLocalSource(s)) {
     return t('sources.player.subtitle')
   }
+  if (isTokenOnlySource(s)) {
+    return t(`sources.${s}.subtitle`)
+  }
   return value || t('sources.notConfigured')
 }
 </script>
@@ -204,8 +207,8 @@ const collapsedSubtitle = (s: SourceType, value: string) => {
       <span class="SourceRow__name">{{ sourceName(type) }}</span>
       <span
         class="SourceRow__url"
-        :class="{ 'SourceRow__url--placeholder': isLocalSource(type) || !url }"
-        :title="isLocalSource(type) ? '' : url || ''"
+        :class="{ 'SourceRow__url--placeholder': !sourceNeedsUrl(type) || !url }"
+        :title="sourceNeedsUrl(type) ? url || '' : ''"
       >
         {{ collapsedSubtitle(type, url) }}
       </span>
@@ -216,7 +219,11 @@ const collapsedSubtitle = (s: SourceType, value: string) => {
         <p class="SourceRow__hint">{{ t('sources.player.hint') }}</p>
       </template>
       <template v-else>
-        <label class="SourceRow__field">
+        <p v-if="isTokenOnlySource(type)" class="SourceRow__hint">
+          {{ t(`sources.${type}.hint`) }}
+        </p>
+
+        <label v-if="!isTokenOnlySource(type)" class="SourceRow__field">
           <span class="SourceRow__field-label">{{ t('sources.form.url') }}</span>
           <input
             type="text"

@@ -24,6 +24,7 @@ import { MpcHttpAdapter } from './adapters/mpc-http.js'
 import { MpvIpcAdapter } from './adapters/mpv-ipc.js'
 import { IinaIpcAdapter } from './adapters/iina-ipc.js'
 import { VlcHttpAdapter } from './adapters/vlc-http.js'
+import { StremioAdapter } from './adapters/stremio.js'
 import { registerSetupAction } from './setup/registry.js'
 import { mpcHcWebInterfaceAction, mpcBeWebInterfaceAction } from './setup/actions/mpc.js'
 import { mpvIpcSetupAction } from './setup/actions/mpv.js'
@@ -47,6 +48,7 @@ export function registerBuiltInAdapters(): void {
   registerAdapter('mpv', MpvIpcAdapter)
   registerAdapter('iina', IinaIpcAdapter)
   registerAdapter('vlc', VlcHttpAdapter)
+  registerAdapter('stremio', StremioAdapter)
 }
 
 /**

@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util'
 import type { LogLevel, SourceType } from '../types.js'
-import { isLocalSource, SOURCE_TYPES as ALL_SOURCE_TYPES } from '../types.js'
+import { isLocalSource, sourceNeedsUrl, SOURCE_TYPES as ALL_SOURCE_TYPES } from '../types.js'
 
 // Derived from the canonical list in types.ts so new source types (mpc, mpv,
 // iina, …) are accepted by --source / --check-source without a second edit here.
@@ -155,6 +155,7 @@ export function parseCliArgs(argv: string[], env: NodeJS.ProcessEnv = process.en
       'emby-token': { type: 'string' },
       'kodi-url': { type: 'string' },
       'kodi-token': { type: 'string' },
+      'stremio-token': { type: 'string' }, // token-only: no --stremio-url
       'check-config': { type: 'boolean' },
       'check-source': { type: 'string', multiple: true },
       'list-setup': { type: 'boolean' },
@@ -183,7 +184,10 @@ export function parseCliArgs(argv: string[], env: NodeJS.ProcessEnv = process.en
     if (isLocalSource(source)) {
       continue
     }
-    const url = one(valuesRecord[`${source}-url`], `${source}-url`)
+    // Token-only sources (Stremio) have no URL — only a token override.
+    const url = sourceNeedsUrl(source)
+      ? one(valuesRecord[`${source}-url`], `${source}-url`)
+      : undefined
     const token = one(valuesRecord[`${source}-token`], `${source}-token`)
     if (url !== undefined || token !== undefined) {
       sourceOverrides[source] = { url, token }

@@ -35,7 +35,7 @@ import {
   skipUpdate,
   type UpdateStatus,
 } from '../../api'
-import { isLocalSource } from '../../utils/source-type'
+import { isLocalSource, sourceNeedsUrl, hasProbeCredentials } from '../../utils/source-type'
 
 const TOKEN_DEBOUNCE_MS = 600
 
@@ -106,7 +106,7 @@ onMounted(async () => {
     if (!source.enabled) {
       continue
     }
-    if (isLocalSource(source.type) || (source.url && source.token)) {
+    if (hasProbeCredentials(source.type, source.url, source.token)) {
       void sourceStatuses.checkNow(source.type, source.url, source.token)
     }
   }
@@ -199,7 +199,10 @@ const heroSlots = computed<HeroSlot[]>(() => {
 
 const hasConfiguredSource = computed(() =>
   config.sources.value.some(
-    (source) => source.enabled && (isLocalSource(source.type) || source.url.trim().length > 0),
+    (source) =>
+      source.enabled &&
+      (isLocalSource(source.type) ||
+        (sourceNeedsUrl(source.type) ? source.url : source.token).trim().length > 0),
   ),
 )
 
@@ -274,7 +277,7 @@ function onSourceUpdate(
         // Run the same discovery as the "Find token" button, so enabling a
         // local Plex goes green in one click.
         void onFindToken(type)
-      } else if (isLocalSource(type) || (next.url && next.token)) {
+      } else if (hasProbeCredentials(type, next.url, next.token)) {
         void sourceStatuses.checkNow(type, next.url, next.token)
       }
     } else {
@@ -340,10 +343,10 @@ async function onEmbySignInSubmit(type: SourceType, username: string, password: 
   }
 }
 
-/** Check the connection once a source is enabled and has both url and token. */
+/** Check the connection once a source is enabled and has the creds it needs. */
 function probeSourceIfReady(type: SourceType) {
   const next = getSource(type)
-  if (next && next.enabled && next.url && next.token) {
+  if (next && next.enabled && hasProbeCredentials(type, next.url, next.token)) {
     void sourceStatuses.checkNow(type, next.url, next.token)
   }
 }
