@@ -56,14 +56,15 @@ The app lives in the tray and keeps scrobbling with the window closed. Updates c
 
 ## Sources
 
-| Source                        | Setup                                                                                                                                                                      |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Plex**                      | Token is discovered automatically from a local Plex Media Server. For a remote server, paste the `X-Plex-Token` manually                                                   |
-| **Jellyfin**                  | Quick Connect or an API key                                                                                                                                                |
-| **Emby**                      | Username/password sign-in or an API key                                                                                                                                    |
-| **Kodi**                      | Web interface username, password and port are discovered automatically, or set by hand                                                                                     |
-| **VLC, mpv, MPC-HC/BE, IINA** | One click in the Setup panel: the app can edit the player config itself (HTTP interface for VLC and MPC, IPC for mpv and IINA) and starts reading exact position and state |
-| **Local player**              | Zero config: process scanning plus system media APIs (SMTC on Windows, AppleScript on macOS). Also catches players that have no dedicated adapter                          |
+| Source                        | Setup                                                                                                                                                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plex**                      | Token is discovered automatically from a local Plex Media Server. For a remote server, paste the `X-Plex-Token` manually                                                                                                                     |
+| **Jellyfin**                  | Quick Connect or an API key                                                                                                                                                                                                                  |
+| **Emby**                      | Username/password sign-in or an API key                                                                                                                                                                                                      |
+| **Kodi**                      | Web interface username, password and port are discovered automatically, or set by hand                                                                                                                                                       |
+| **VLC, mpv, MPC-HC/BE, IINA** | One click in the Setup panel: the app can edit the player config itself (HTTP interface for VLC and MPC, IPC for mpv and IINA) and starts reading exact position and state                                                                   |
+| **Stremio**                   | Cloud source: paste your Stremio account authKey (from the web.stremio.com console: `JSON.parse(localStorage.profile).auth.key`). Reads the `api.strem.io` library and catches playback from every Stremio client — web, desktop, mobile, TV |
+| **Local player**              | Zero config: process scanning plus system media APIs (SMTC on Windows, AppleScript on macOS). Also catches players that have no dedicated adapter                                                                                            |
 
 ### Features
 
@@ -126,6 +127,21 @@ Everything is configurable from the UI, or by hand in `data/config.json`:
 
 - `scrobble_percent`: the "watched" threshold, in percent.
 - `poll_interval`: source polling period, ms.
+
+### Filtering Plex users
+
+On a shared Plex server, sessions from every user get scrobbled. To count only your own playback, add a `user_filter` to the `plex` source — a list of Plex usernames or user IDs. There is no UI field for it; set it by hand in `data/config.json`:
+
+```json
+{
+  "type": "plex",
+  "url": "http://localhost:32400",
+  "token": "plex_x_token",
+  "user_filter": ["UserName"]
+}
+```
+
+Only sessions whose username (`User.title`) or ID (`User.id`) matches an entry are counted. Matching is case-insensitive and trims surrounding whitespace. An empty or omitted `user_filter` counts every viewer.
 
 ## Scrobble API
 

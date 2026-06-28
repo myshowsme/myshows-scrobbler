@@ -11,7 +11,7 @@ import type {
   NowPlayingEntry,
   UpdateController,
 } from '../types.js'
-import { isLocalSource, SOURCE_TYPES } from '../types.js'
+import { isLocalSource, sourceNeedsUrl, SOURCE_TYPES } from '../types.js'
 import type { BaseAdapter } from '../adapters/base.js'
 import { createAdapter } from '../adapters/registry.js'
 import {
@@ -432,8 +432,15 @@ export async function apiRoutes(fastify: FastifyInstance, ctx: ApiContext): Prom
 
     const { url, token } = request.body ?? {}
     // Local sources (e.g. process-scanning `player`) need no credentials.
-    if (!isLocalSource(type as SourceType) && (!url || !token)) {
-      return { ok: false, error: 'url and token are required', code: 'auth' as SourceErrorCode }
+    // Token-only sources (Stremio) use a fixed endpoint and need just the token.
+    // Everything else needs both a URL and a token.
+    const sourceType = type as SourceType
+    if (!isLocalSource(sourceType)) {
+      const needsUrl = sourceNeedsUrl(sourceType)
+      if (needsUrl ? !url || !token : !token) {
+        const error = needsUrl ? 'url and token are required' : 'token is required'
+        return { ok: false, error, code: 'auth' as SourceErrorCode }
+      }
     }
 
     try {

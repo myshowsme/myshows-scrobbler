@@ -69,6 +69,10 @@
       "subtitle": "VLC, MPC, mpv и другие на этом компьютере",
       "hint": "Ловит запущенные на этой же машине VLC, MPV, MPC, IINA, Infuse, QuickTime и стандартные плееры Windows. На macOS точная позиция и длительность для VLC и QuickTime читаются напрямую через AppleScript; остальные плееры используют встроенный `ffprobe` и оценку по uptime процесса."
     },
+    "stremio": {
+      "subtitle": "api.strem.io · облачная библиотека",
+      "hint": "Вставьте authKey аккаунта Stremio в консоли браузера на web.stremio.com: JSON.parse(localStorage.profile).auth.key. Просмотры подхватываются со всех клиентов (web, десктоп, мобайл, TV)."
+    },
     "status": {
       "checking": "проверка…",
       "ok": "подключено",

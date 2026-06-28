@@ -11,6 +11,7 @@ export type SourceType =
   | 'mpv'
   | 'iina'
   | 'vlc'
+  | 'stremio'
 
 export const SOURCE_TYPES: readonly SourceType[] = [
   'plex',
@@ -22,6 +23,7 @@ export const SOURCE_TYPES: readonly SourceType[] = [
   'mpv',
   'iina',
   'vlc',
+  'stremio',
 ] as const
 
 export const LOCAL_SOURCE_TYPES: readonly SourceType[] = [
@@ -32,6 +34,8 @@ export const LOCAL_SOURCE_TYPES: readonly SourceType[] = [
   'vlc',
 ] as const
 
+export const TOKEN_ONLY_SOURCE_TYPES: readonly SourceType[] = ['stremio'] as const
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 export interface SourceConfig {
@@ -40,6 +44,11 @@ export interface SourceConfig {
   url: string
   token: string
   pollInterval: number
+  /**
+   * Hidden, config-only viewer filter (no UI). Honoured by Plex: when non-empty,
+   * only sessions whose `User.id` or `User.title` match an entry are counted.
+   * Empty = every viewer.
+   */
   userFilter: string[]
 }
 
@@ -50,9 +59,9 @@ export interface AppConfig {
   /** Minimum media length (minutes) to track. Shorter videos are ignored. 0 disables the check. */
   minDurationMinutes: number
   /**
-   * When true, fire SCROBBLE_STOP as soon as `scrobblePercent` is reached during
-   * playback and stop tracking the title. When false, STOP is only sent when
-   * playback actually ends (the pre-feature behavior).
+   * When true, send the STOP scrobble as soon as `scrobblePercent` is reached
+   * and stop tracking the title. When false, STOP waits until playback actually
+   * ends (how it worked before this option existed).
    */
   stopAtThreshold: boolean
   logLevel: LogLevel

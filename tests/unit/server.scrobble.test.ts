@@ -167,6 +167,37 @@ describe('handleScrobble pipeline', () => {
     await fastify.close()
   })
 
+  it('cloud source (Stremio, progress-only) finalizes at threshold under default config', async () => {
+    // Stremio only ever emits progress (cloud polling never sees a stop). With the
+    // default stopAtThreshold=true, a progress tick past the threshold must still
+    // send SCROBBLE_STOP.
+    const server = await buildServer({
+      sources: [
+        {
+          type: 'plex',
+          enabled: true,
+          url: 'http://x',
+          token: 't',
+          poll_interval: 5000,
+          user_filter: [],
+        },
+      ],
+    })
+    const { fastify } = server
+    const spy = mockSendScrobble(server)
+
+    await emitVia(
+      server,
+      sampleEpisode({ source: 'stremio', action: 'progress', viewOffset: 2679000 }), // ~95%
+    )
+
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(spy.mock.calls[0][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_START)
+    expect(spy.mock.calls[1][0]).toBe(MYSHOWS_ENDPOINTS.SCROBBLE_STOP)
+
+    await fastify.close()
+  })
+
   it('interceptOnly=true → success in feed, no sendScrobble call', async () => {
     const server = await buildServer({
       intercept_only: true,

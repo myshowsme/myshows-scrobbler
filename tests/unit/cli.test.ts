@@ -115,6 +115,24 @@ describe('CLI config merge', () => {
 
     expect(issues).toEqual([{ level: 'warning', message: 'jellyfin: url is empty' }])
   })
+
+  it('does not warn about an empty URL for a token-only Stremio source', () => {
+    const args = parseCliArgs(['--source', 'stremio'])
+    const merged = mergeCliConfig(baseConfig, args)
+    const issues = validateConfig(merged)
+
+    expect(issues).toEqual([])
+  })
+
+  it('parses --stremio-token into a token-only override with no URL', () => {
+    const args = parseCliArgs(['--stremio-token', 'AUTHKEY'])
+
+    expect(args.sourceOverrides.stremio).toEqual({ url: undefined, token: 'AUTHKEY' })
+
+    const merged = mergeCliConfig(baseConfig, args)
+    const stremio = merged.sources.find((s) => s.type === 'stremio')
+    expect(stremio).toMatchObject({ type: 'stremio', enabled: true, url: '', token: 'AUTHKEY' })
+  })
 })
 
 describe('CLI runtime wiring', () => {

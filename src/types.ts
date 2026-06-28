@@ -10,6 +10,7 @@ export type SourceType =
   | 'mpv'
   | 'iina'
   | 'vlc'
+  | 'stremio'
 /** Fixed list of supported sources. UI renders one row per entry. */
 export const SOURCE_TYPES: readonly SourceType[] = [
   'plex',
@@ -21,6 +22,7 @@ export const SOURCE_TYPES: readonly SourceType[] = [
   'mpv',
   'iina',
   'vlc',
+  'stremio',
 ] as const
 
 /**
@@ -40,6 +42,27 @@ export const LOCAL_SOURCE_TYPES: readonly SourceType[] = [
 export function isLocalSource(type: SourceType): boolean {
   return (LOCAL_SOURCE_TYPES as readonly SourceType[]).includes(type)
 }
+
+/**
+ * Remote sources that authenticate with a token only and use a fixed, built-in
+ * endpoint — there is no server URL for the user to enter (e.g. Stremio always
+ * talks to api.strem.io). The UI hides the URL field and probes on token alone.
+ */
+export const TOKEN_ONLY_SOURCE_TYPES: readonly SourceType[] = ['stremio'] as const
+
+export function isTokenOnlySource(type: SourceType): boolean {
+  return (TOKEN_ONLY_SOURCE_TYPES as readonly SourceType[]).includes(type)
+}
+
+/**
+ * Whether a source needs a user-entered URL. Local sources auto-detect; token-only
+ * sources (Stremio) use a fixed endpoint; everything else (Plex/Emby/…) needs a URL.
+ * Shared by the server probe/validation/CLI paths and the UI.
+ */
+export function sourceNeedsUrl(type: SourceType): boolean {
+  return !isLocalSource(type) && !isTokenOnlySource(type)
+}
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 // ── Source configuration ──
@@ -50,6 +73,11 @@ export interface SourceConfig {
   url: string
   token: string
   pollInterval: number
+  /**
+   * Hidden, config-only viewer filter (no UI). Honoured by Plex: when non-empty,
+   * only sessions whose `User.id` or `User.title` match an entry are counted.
+   * Empty = every viewer.
+   */
   userFilter: string[]
 }
 

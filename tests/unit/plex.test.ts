@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vite-plus/test'
 import { PlexAdapter } from '../../src/adapters/plex.js'
 import type { SourceConfig, NormalizedEvent } from '../../src/types.js'
 
-function makeAdapter(emitted: NormalizedEvent[]): PlexAdapter {
+function makeAdapter(emitted: NormalizedEvent[], userFilter: string[] = []): PlexAdapter {
   const config: SourceConfig = {
     type: 'plex',
     enabled: true,
     url: 'http://localhost:32400',
     token: 't',
     pollInterval: 5000,
-    userFilter: [],
+    userFilter,
   }
   return new PlexAdapter(config, {
     onScrobble: async (e) => {
@@ -133,6 +133,35 @@ describe('PlexAdapter polling diff', () => {
     await tick(adapter)
 
     expect(emitted).toHaveLength(0)
+  })
+
+  it('drops sessions of other users when a hidden user_filter is set', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = makeAdapter(emitted, ['JuFrolov'])
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    const mine = { ...episodeSession, sessionKey: 'mine', User: { id: '1', title: 'JuFrolov' } }
+    const theirs = {
+      ...episodeSession,
+      sessionKey: 'theirs',
+      ratingKey: '99',
+      grandparentRatingKey: '11',
+      User: { id: '2', title: 'SomeoneElse' },
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([mine, theirs]),
+        '/library/metadata/10': () => metadataResponse([{ Guid: [{ id: 'imdb://tt0959621' }] }]),
+        '/library/metadata/42': () => metadataResponse([{ Guid: [] }]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].sessionId).toBe('mine')
   })
 
   it('emits another progress when viewOffset advances', async () => {
