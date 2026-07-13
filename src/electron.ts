@@ -60,6 +60,74 @@ function restoreMainWindow(): void {
   mainWindow.focus()
 }
 
+// ── Autostart at login ──
+//
+// macOS and Windows go through Electron's login-item API (SMAppService /
+// registry Run key). Linux has no Electron support for login items, so we
+// write an XDG autostart .desktop entry pointing at the AppImage instead.
+
+function linuxAutostartFile(): string {
+  const configDir = process.env.XDG_CONFIG_HOME ?? path.join(app.getPath('home'), '.config')
+  return path.join(configDir, 'autostart', 'myshows-scrobbler.desktop')
+}
+
+function isAutostartEnabled(): boolean {
+  if (process.platform === 'linux') {
+    return fs.existsSync(linuxAutostartFile())
+  }
+  return app.getLoginItemSettings().openAtLogin
+}
+
+function setAutostart(enabled: boolean): void {
+  if (process.platform === 'linux') {
+    const file = linuxAutostartFile()
+    try {
+      if (enabled) {
+        // Packaged Linux builds run from an AppImage; APPIMAGE holds its real
+        // path (process.execPath points inside the extracted squashfs mount).
+        const exec = process.env.APPIMAGE ?? process.execPath
+        fs.mkdirSync(path.dirname(file), { recursive: true })
+        fs.writeFileSync(
+          file,
+          [
+            '[Desktop Entry]',
+            'Type=Application',
+            'Name=MyShows Scrobbler',
+            `Exec="${exec}" --hidden`,
+            'X-GNOME-Autostart-enabled=true',
+            '',
+          ].join('\n'),
+        )
+      } else {
+        fs.rmSync(file, { force: true })
+      }
+    } catch (err) {
+      console.error(err)
+    }
+    return
+  }
+
+  app.setLoginItemSettings({
+    openAtLogin: enabled,
+    // Windows only: launch parked in the tray (see shouldStartHidden). macOS
+    // login items get no custom args — detected via wasOpenedAtLogin instead.
+    args: ['--hidden'],
+  })
+}
+
+/**
+ * True when this launch came from the login autostart — such launches go
+ * straight to the tray without opening the window. Windows and Linux pass
+ * --hidden (we control the registry args / .desktop Exec line); macOS login
+ * items launch without custom args, so ask the system instead.
+ */
+function shouldStartHidden(): boolean {
+  if (process.argv.includes('--hidden')) {
+    return true
+  }
+  return process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin
+}
+
 function createTray(): void {
   if (tray) {
     return
@@ -79,16 +147,7 @@ function createTray(): void {
 
   tray = new Tray(image)
   tray.setToolTip('MyShows Scrobbler')
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Показать', click: restoreMainWindow },
-      { type: 'separator' },
-      {
-        label: 'Выйти',
-        click: () => void requestQuit(),
-      },
-    ]),
-  )
+  updateTrayMenu()
   tray.on('click', restoreMainWindow)
 }
 
@@ -111,9 +170,9 @@ async function requestQuit(): Promise<void> {
 type UiLocale = 'ru' | 'en'
 
 /**
- * Language for native (main-process) notifications. Mirrors the renderer's
- * LangSwitch choice; until the window has synced it once, falls back to the
- * OS locale.
+ * Language for native (main-process) notifications and the tray menu. Mirrors
+ * the renderer's LangSwitch choice; until the window has synced it once, falls
+ * back to the OS locale.
  */
 let uiLocale: UiLocale | null = null
 
@@ -124,14 +183,18 @@ function getUiLocale(): UiLocale {
   return app.getLocale().toLowerCase().startsWith('ru') ? 'ru' : 'en'
 }
 
-/** Pull the renderer's language choice (localStorage 'locale') into uiLocale. */
+/**
+ * Pull the renderer's language choice (localStorage 'locale') into uiLocale
+ * and rebuild the tray menu when it changed.
+ */
 async function syncUiLocale(): Promise<void> {
   try {
     const stored: unknown = await mainWindow?.webContents.executeJavaScript(
       `localStorage.getItem('locale')`,
     )
-    if (stored === 'ru' || stored === 'en') {
+    if ((stored === 'ru' || stored === 'en') && stored !== uiLocale) {
       uiLocale = stored
+      updateTrayMenu()
     }
   } catch {
     // Window already gone — keep the last known value.
@@ -156,6 +219,41 @@ const TRAY_NOTICE_BODY: Record<UiLocale, string> = {
 const UPDATE_AVAILABLE_BODY: Record<UiLocale, (version: string) => string> = {
   ru: (version) => `Доступна новая версия ${version}`,
   en: (version) => `A new version ${version} is available`,
+}
+
+const TRAY_MENU_LABELS: Record<UiLocale, { show: string; autostart: string; quit: string }> = {
+  ru: { show: 'Показать', autostart: 'Запускать при старте системы', quit: 'Выйти' },
+  en: { show: 'Show', autostart: 'Launch at login', quit: 'Quit' },
+}
+
+/**
+ * (Re)build the tray context menu in the current UI language. Re-reads the
+ * autostart state too, so a change made externally (System Settings, registry)
+ * is picked up on the next rebuild.
+ */
+function updateTrayMenu(): void {
+  if (!tray) {
+    return
+  }
+  const labels = TRAY_MENU_LABELS[getUiLocale()]
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: labels.show, click: restoreMainWindow },
+      { type: 'separator' },
+      {
+        label: labels.autostart,
+        type: 'checkbox',
+        checked: isAutostartEnabled(),
+        // In dev process.execPath is the bare Electron binary from
+        // node_modules — registering it in autostart would launch a blank
+        // Electron shell, so the toggle only makes sense in packaged builds.
+        enabled: app.isPackaged,
+        click: (item) => setAutostart(item.checked),
+      },
+      { type: 'separator' },
+      { label: labels.quit, click: () => void requestQuit() },
+    ]),
+  )
 }
 
 function maybeShowTrayNotice(): void {
@@ -222,6 +320,11 @@ async function createMainWindow(url: string): Promise<void> {
   })
 
   await mainWindow.loadURL(url)
+
+  // Pick up the renderer's stored language right away so the tray menu and
+  // notifications match the in-app choice (it's re-synced on window close and
+  // before update notices).
+  void syncUiLocale()
 }
 
 // ── Auto-update (electron-updater + GitHub releases) ──
@@ -395,7 +498,15 @@ async function main(): Promise<void> {
   logger.info(`Electron UI: ${mainUrl}`)
 
   createTray()
-  await createMainWindow(mainUrl)
+  if (shouldStartHidden()) {
+    // Launched by the login autostart: park in the tray, don't pop the window
+    // on every boot. restoreMainWindow creates it on demand from mainUrl.
+    if (process.platform === 'darwin') {
+      app.dock?.hide()
+    }
+  } else {
+    await createMainWindow(mainUrl)
+  }
 
   updates.start(logger)
 }
