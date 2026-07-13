@@ -15,8 +15,9 @@ fs.writeFileSync(
   JSON.stringify(
     {
       myshows_token: 'e2e-token',
-      myshows_url: 'https://api.myshows.me/v2/rpc/',
-      port: PORT,
+      // Token checks go to the mock (see mock-plex-server.ts) — without a
+      // "valid" token the UI keeps showing the setup wizard instead of heroes.
+      myshows_url: `http://127.0.0.1:${MOCK_PLEX_PORT}/myshows`,
       scrobble_percent: 50,
       log_level: 'error',
       intercept_only: true,
@@ -57,13 +58,16 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      command: 'node dist/server/index.js --ui',
+      command: 'node dist/server/index.mjs --ui',
       url: `http://127.0.0.1:${PORT}/health`,
       timeout: 60_000,
       reuseExistingServer: false,
       env: {
         ...(process.env as Record<string, string>),
         CONFIG_PATH,
+        // The server takes its listen port from --port/PORT (config.json has
+        // no port field) — pin it so the baseURL above matches.
+        PORT: String(PORT),
       },
       stdout: 'pipe',
       stderr: 'pipe',
