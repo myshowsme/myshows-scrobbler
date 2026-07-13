@@ -52,36 +52,36 @@
     "prepare": "vp config"
   },
   "dependencies": {
-    "@fastify/websocket": "11.2.0",
+    "@fastify/websocket": "11.3.0",
     "@ffprobe-installer/ffprobe": "2.1.2",
     "electron-updater": "6.8.9",
-    "fastify": "5.8.5",
+    "fastify": "5.10.0",
     "guessit-js": "4.0.0",
-    "koffi": "3.0.2"
+    "koffi": "3.1.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.61.0",
+    "@playwright/test": "1.61.1",
     "@types/node": "25.9.3",
     "@types/ws": "8.18.1",
     "@vitejs/plugin-vue": "6.0.7",
-    "@vitest/ui": "4.1.9",
+    "@vitest/ui": "4.1.10",
     "concurrently": "10.0.3",
     "cross-env": "10.1.0",
-    "electron": "42.4.1",
+    "electron": "42.6.1",
     "electron-builder": "26.15.3",
-    "portless": "0.14.0",
+    "portless": "0.15.1",
     "sass": "1.101.0",
-    "tsx": "4.22.4",
+    "tsx": "4.23.0",
     "typescript": "6.0.3",
-    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.1",
-    "vite-plus": "0.2.1",
-    "vitest": "4.1.9",
-    "vue": "3.5.38",
-    "vue-i18n": "11.4.5",
-    "vue-tsc": "3.3.5"
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.4",
+    "vite-plus": "0.2.4",
+    "vitest": "4.1.10",
+    "vue": "3.5.39",
+    "vue-i18n": "11.4.6",
+    "vue-tsc": "3.3.7"
   },
   "optionalDependencies": {
-    "@fastify/static": "9.1.3"
+    "@fastify/static": "10.1.0"
   },
   "engines": {
     "node": ">=24.0.0",
