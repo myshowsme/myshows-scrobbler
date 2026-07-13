@@ -81,6 +81,15 @@ export function startMockPlexServer(port: number): MockPlexServer {
       return
     }
 
+    // Minimal MyShows API stub so e2e doesn't depend on the real service:
+    // GET /myshows/check validates the token (200 = valid), POST /myshows/*
+    // accepts scrobbles (unused when intercept_only is on).
+    if (url.startsWith('/myshows/')) {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ok: true }))
+      return
+    }
+
     res.writeHead(404)
     res.end()
   })

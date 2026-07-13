@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite-plus'
+import { defineConfig, type ProxyOptions } from 'vite-plus'
 import vue from '@vitejs/plugin-vue'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -44,26 +44,19 @@ function isBackendUnavailable(error: Error & { code?: string }): boolean {
   return error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET'
 }
 
-function configureProxy(proxy: {
-  on: (event: string, handler: (...args: unknown[]) => void) => void
-}) {
+const configureProxy: NonNullable<ProxyOptions['configure']> = (proxy) => {
   proxy.on('error', (error, _req, res) => {
     const err = error as Error & { code?: string }
     if (!isBackendUnavailable(err)) {
       console.error('[scrobbler-ui] proxy error:', err)
     }
 
-    if (res && typeof res === 'object' && 'writeHead' in res && 'end' in res) {
-      const response = res as {
-        headersSent?: boolean
-        writeHead: (status: number, headers?: Record<string, string>) => void
-        end: (chunk?: string) => void
+    // WS upgrade failures hand us a bare socket with no writeHead — skip those.
+    if (res && 'writeHead' in res) {
+      if (!res.headersSent) {
+        res.writeHead(503, { 'Content-Type': 'application/json' })
       }
-
-      if (!response.headersSent) {
-        response.writeHead(503, { 'Content-Type': 'application/json' })
-      }
-      response.end(
+      res.end(
         JSON.stringify({
           error: `Scrobbler backend is unavailable on port ${backendPort}`,
           code: 'backend_unavailable',

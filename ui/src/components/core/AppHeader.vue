@@ -102,11 +102,14 @@ const version = __APP_VERSION__
         <span class="AppHeader__logo-sep" aria-hidden="true">·</span>
         <span class="AppHeader__logo-name">scrobbler</span>
       </a>
-      <span
+      <a
         class="AppHeader__version"
         :class="{ 'AppHeader__version--update': props.updateAvailable }"
         :title="props.updateAvailable ? t('update.indicator') : `v${version}`"
-        >v{{ version }}</span
+        href="https://github.com/myshowsme/myshows-scrobbler/releases"
+        target="_blank"
+        rel="noopener noreferrer"
+        >v{{ version }}</a
       >
 
       <div class="AppHeader__spacer"></div>
@@ -194,12 +197,17 @@ const version = __APP_VERSION__
     line-height: 1;
     letter-spacing: 0.02em;
     color: rgba(255, 255, 255, 0.45);
-    cursor: default;
+    text-decoration: none;
     user-select: none;
     transition: color 0.12s;
 
     &:hover {
       color: rgba(255, 255, 255, 0.8);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--v2-brand);
+      outline-offset: 2px;
+      border-radius: 2px;
     }
 
     &--update {
