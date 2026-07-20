@@ -4,11 +4,17 @@ import { findWindow, sendMessage, isWin32, type Hwnd } from './win32-bridge.js'
  * Windows PotPlayer precise probe — talks directly to the running PotPlayer
  * window via documented WM_USER messages. Zero user configuration.
  *
- * Protocol (PotPlayer's public external-control API):
- *   SendMessage(hwnd, WM_USER, 0x5001, 0) -> playback status
- *     0 = stopped, 1 = paused, 2 = playing
+ * Protocol (PotPlayer's public external-control API): wParam carries the
+ * command, lParam carries the *value* for setters.
+ *   SendMessage(hwnd, WM_USER, 0x5006, 0) -> playback status
+ *     -1/0 = stopped, 1 = paused, 2 = playing
  *   SendMessage(hwnd, WM_USER, 0x5002, 0) -> total duration in milliseconds
  *   SendMessage(hwnd, WM_USER, 0x5004, 0) -> current position in milliseconds
+ *
+ * Only POT_GET_* commands belong here. The 0x500x block interleaves getters
+ * and setters (0x5001 POT_SET_VOLUME, 0x5005 POT_SET_CURRENT_TIME, 0x5007
+ * POT_SET_PLAY_STATUS, ...), so a wrong constant does not fail loudly — it
+ * silently drives the user's player with lParam 0 on every poll.
  *
  * No file path is exposed by these messages. The adapter recovers the filename
  * from the process scan's window-title pass (`filenameFromWindowTitle`), so
@@ -22,9 +28,9 @@ import { findWindow, sendMessage, isWin32, type Hwnd } from './win32-bridge.js'
 const WM_USER = 0x0400
 
 const POTPLAYER_CMD = {
-  GET_PLAYBACK_STATUS: 0x5001,
   GET_TOTAL_TIME_MS: 0x5002,
   GET_PLAYBACK_TIME_MS: 0x5004,
+  GET_PLAYBACK_STATUS: 0x5006,
 } as const
 
 const POTPLAYER_WINDOW_CLASSES = ['PotPlayer64', 'PotPlayer'] as const
