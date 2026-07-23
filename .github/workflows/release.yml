@@ -47,21 +47,24 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
+          # Load-bearing since setup-node v6: its automatic caching was
+          # narrowed to npm only, so pnpm caching happens *only* because this
+          # is set explicitly. Dropping it silently loses the store cache.
           cache: pnpm
 
       # electron-builder downloads a per-platform Electron during packaging;
       # cache it so re-runs don't re-download ~100 MB.
       - name: Cache Electron downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/electron
