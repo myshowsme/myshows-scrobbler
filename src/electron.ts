@@ -6,7 +6,14 @@ import electronUpdater from 'electron-updater'
 import { createServer } from './server.js'
 import { DEFAULT_PORT } from './config.js'
 import type { Logger } from './logger.js'
+import { IDLE_UPDATE_STATUS } from './types.js'
 import type { UpdateController, UpdateStatus } from './types.js'
+import {
+  AUTOSTART_ARGS,
+  isWindowsAutostartActive,
+  shouldRepairWindowsAutostart,
+  type LoginItemSnapshot,
+} from './utils/autostart.js'
 
 const { autoUpdater } = electronUpdater
 
@@ -65,20 +72,58 @@ function restoreMainWindow(): void {
 // macOS and Windows go through Electron's login-item API (SMAppService /
 // registry Run key). Linux has no Electron support for login items, so we
 // write an XDG autostart .desktop entry pointing at the AppImage instead.
+//
+// The user's choice is also mirrored to a file in userData. Windows updates
+// reinstall the app rather than patch it, so the Run entry can end up pointing
+// at a path that no longer exists; the stored preference is what lets us
+// notice and put it back (see repairAutostart).
 
 function linuxAutostartFile(): string {
   const configDir = process.env.XDG_CONFIG_HOME ?? path.join(app.getPath('home'), '.config')
   return path.join(configDir, 'autostart', 'myshows-scrobbler.desktop')
 }
 
+function autostartPrefPath(): string {
+  return path.join(app.getPath('userData'), 'autostart.json')
+}
+
+/** The remembered choice, or null when the user never touched the toggle. */
+function readAutostartPref(): boolean | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(autostartPrefPath(), 'utf8')) as { enabled?: unknown }
+    return typeof raw.enabled === 'boolean' ? raw.enabled : null
+  } catch {
+    return null
+  }
+}
+
+function writeAutostartPref(enabled: boolean): void {
+  try {
+    fs.writeFileSync(autostartPrefPath(), JSON.stringify({ enabled }))
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+function windowsLoginItems(): LoginItemSnapshot {
+  // Ask with the same args we registered with — Windows matches the whole
+  // command line, so a bare call reports openAtLogin: false for our entry.
+  return app.getLoginItemSettings({ args: AUTOSTART_ARGS })
+}
+
 function isAutostartEnabled(): boolean {
   if (process.platform === 'linux') {
     return fs.existsSync(linuxAutostartFile())
+  }
+  if (process.platform === 'win32') {
+    return isWindowsAutostartActive(windowsLoginItems())
   }
   return app.getLoginItemSettings().openAtLogin
 }
 
 function setAutostart(enabled: boolean): void {
+  writeAutostartPref(enabled)
+
   if (process.platform === 'linux') {
     const file = linuxAutostartFile()
     try {
@@ -111,8 +156,46 @@ function setAutostart(enabled: boolean): void {
     openAtLogin: enabled,
     // Windows only: launch parked in the tray (see shouldStartHidden). macOS
     // login items get no custom args — detected via wasOpenedAtLogin instead.
-    args: ['--hidden'],
+    args: AUTOSTART_ARGS,
   })
+}
+
+/**
+ * Reconcile the remembered autostart choice with what the OS actually has,
+ * once per launch. Two jobs:
+ *
+ *  - First run after this shipped (no preference file): adopt whatever is
+ *    registered, so a choice made in an earlier version is remembered too.
+ *  - Windows: if the preference says "on" but no Run entry points at this
+ *    executable, put it back. An NSIS update reinstalls the app, and any
+ *    reinstall that changes the install path orphans the old entry — the
+ *    toggle then reads as off and the app quietly stops starting at login.
+ *
+ * Never turns autostart on by itself: with no stored preference, or one that
+ * says off, this does nothing. An entry the user disabled in Task Manager is
+ * left alone too (see shouldRepairWindowsAutostart).
+ */
+function repairAutostart(logger: Logger): void {
+  if (!app.isPackaged) {
+    return
+  }
+
+  const preference = readAutostartPref()
+  if (preference === null) {
+    writeAutostartPref(isAutostartEnabled())
+    return
+  }
+
+  if (process.platform !== 'win32') {
+    return
+  }
+  if (!shouldRepairWindowsAutostart(preference, windowsLoginItems(), process.execPath)) {
+    return
+  }
+
+  logger.info('Autostart entry is missing — restoring it from the saved preference')
+  setAutostart(true)
+  updateTrayMenu()
 }
 
 /**
@@ -248,7 +331,12 @@ function updateTrayMenu(): void {
         // node_modules — registering it in autostart would launch a blank
         // Electron shell, so the toggle only makes sense in packaged builds.
         enabled: app.isPackaged,
-        click: (item) => setAutostart(item.checked),
+        // Rebuild after toggling so the tick reflects what the OS ended up
+        // with, not what the click assumed (a registry write can fail).
+        click: (item) => {
+          setAutostart(item.checked)
+          updateTrayMenu()
+        },
       },
       { type: 'separator' },
       { label: labels.quit, click: () => void requestQuit() },
@@ -321,6 +409,12 @@ async function createMainWindow(url: string): Promise<void> {
 
   await mainWindow.loadURL(url)
 
+  // Reopening the window mid-download gives us a fresh taskbar button, which
+  // starts out with no progress bar — put it back.
+  if (updateStatus.downloading) {
+    setNativeUpdateProgress(updateStatus.percent)
+  }
+
   // Pick up the renderer's stored language right away so the tray menu and
   // notifications match the in-app choice (it's re-synced on window close and
   // before update notices).
@@ -332,7 +426,36 @@ async function createMainWindow(url: string): Promise<void> {
 // Updates are NOT forced: we check in the background and surface availability to
 // the UI (a dot on the version + a prompt); the user picks Update or Skip.
 
-let updateStatus: UpdateStatus = { available: false, version: null, downloading: false }
+let updateStatus: UpdateStatus = { ...IDLE_UPDATE_STATUS }
+
+/**
+ * Grace period between "downloaded" and shutting the server down, so the UI's
+ * 1s progress poll picks up the `installing` flag before the backend goes away.
+ */
+const INSTALL_HANDOFF_DELAY_MS = 1200
+
+const TRAY_DOWNLOAD_TOOLTIP: Record<UiLocale, (percent: number) => string> = {
+  ru: (percent) => `MyShows Scrobbler — загрузка обновления ${percent}%`,
+  en: (percent) => `MyShows Scrobbler — downloading update ${percent}%`,
+}
+
+/**
+ * Mirror the download onto the OS chrome: the taskbar button on Windows, the
+ * Dock icon on macOS, the launcher on Unity. Electron ships no update UI of
+ * its own, but this native progress bar is free — and it is the only progress
+ * a user sees while the app window is closed. `-1` clears it.
+ *
+ * The tray tooltip carries the same number, since the window (and with it the
+ * taskbar button) is destroyed whenever the app is parked in the tray.
+ */
+function setNativeUpdateProgress(percent: number | null): void {
+  mainWindow?.setProgressBar(percent === null ? -1 : percent / 100)
+  tray?.setToolTip(
+    percent === null
+      ? 'MyShows Scrobbler'
+      : TRAY_DOWNLOAD_TOOLTIP[getUiLocale()](Math.round(percent)),
+  )
+}
 
 function skippedUpdatesPath(): string {
   return path.join(app.getPath('userData'), 'skipped-updates.json')
@@ -375,17 +498,29 @@ function createUpdateController(): {
         updateLogger?.warn('Update install requested but no version is available')
         return
       }
+      // A second click while the transfer is running would start a parallel
+      // download and reset the progress the UI is drawing.
+      if (updateStatus.downloading || updateStatus.installing) {
+        return
+      }
       // All platforms self-install: download the update, then quitAndInstall on
       // `update-downloaded`. macOS works too because release builds are signed
       // + notarized (Squirrel.Mac requires a valid signature) and ship a `zip`
       // target alongside the dmg.
       updateLogger?.info(`Downloading update ${updateStatus.version}...`)
-      updateStatus = { ...updateStatus, downloading: true }
+      updateStatus = {
+        ...updateStatus,
+        downloading: true,
+        percent: 0,
+        transferred: 0,
+        total: null,
+        bytesPerSecond: null,
+        error: null,
+      }
       void autoUpdater.downloadUpdate().catch((err) => {
-        updateStatus = { ...updateStatus, downloading: false }
-        updateLogger?.warn(
-          `Update download failed: ${err instanceof Error ? err.message : String(err)}`,
-        )
+        const message = err instanceof Error ? err.message : String(err)
+        updateStatus = { ...updateStatus, downloading: false, error: message }
+        updateLogger?.warn(`Update download failed: ${message}`)
       })
     },
     skip: () => {
@@ -393,7 +528,7 @@ function createUpdateController(): {
         skipped.add(updateStatus.version)
         saveSkippedUpdates(skipped)
       }
-      updateStatus = { available: false, version: null, downloading: false }
+      updateStatus = { ...IDLE_UPDATE_STATUS }
     },
   }
 
@@ -405,14 +540,43 @@ function createUpdateController(): {
     autoUpdater.autoDownload = false
 
     autoUpdater.on('error', (err) => {
-      updateStatus = { ...updateStatus, downloading: false }
-      logger.warn(`Auto-update error: ${err instanceof Error ? err.message : String(err)}`)
+      const message = err instanceof Error ? err.message : String(err)
+      // Only surface failures for a transfer the user started — the banner is
+      // the only place `error` shows, and a failed background check (offline,
+      // GitHub hiccup) has nothing on screen it would explain.
+      const userInitiated = updateStatus.downloading || updateStatus.installing
+      updateStatus = {
+        ...updateStatus,
+        downloading: false,
+        installing: false,
+        bytesPerSecond: null,
+        error: userInitiated ? message : updateStatus.error,
+      }
+      setNativeUpdateProgress(null)
+      logger.warn(`Auto-update error: ${message}`)
+    })
+    autoUpdater.on('download-progress', (progress) => {
+      const percent = Math.max(0, Math.min(100, progress.percent))
+      updateStatus = {
+        ...updateStatus,
+        downloading: true,
+        percent,
+        transferred: progress.transferred,
+        total: progress.total,
+        bytesPerSecond: progress.bytesPerSecond,
+      }
+      setNativeUpdateProgress(percent)
     })
     autoUpdater.on('update-available', (info) => {
       if (skipped.has(info.version)) {
         return
       }
-      updateStatus = { available: true, version: info.version, downloading: false }
+      // The 6h re-check re-announces the same version; don't let it wipe the
+      // progress of a download already in flight.
+      if (updateStatus.downloading || updateStatus.installing) {
+        return
+      }
+      updateStatus = { ...IDLE_UPDATE_STATUS, available: true, version: info.version }
       logger.info(`Update available: ${info.version}`)
       // Only nudge with a native popup when the window is hidden (parked in the
       // tray / minimized). If it's open, the in-app dot + banner already show the
@@ -448,7 +612,12 @@ function createUpdateController(): {
       logger.info('Update downloaded — stopping server and installing')
       installingUpdate = true
       isQuitting = true
+      updateStatus = { ...updateStatus, downloading: false, installing: true, percent: 100 }
       void (async () => {
+        // Let the UI poll once more so the banner says "installing" before the
+        // window goes away — otherwise it vanishes mid-progress-bar and the
+        // relaunch looks like a crash.
+        await new Promise((resolve) => setTimeout(resolve, INSTALL_HANDOFF_DELAY_MS))
         try {
           await stopServer?.()
         } catch (err) {
@@ -498,6 +667,7 @@ async function main(): Promise<void> {
   logger.info(`Electron UI: ${mainUrl}`)
 
   createTray()
+  repairAutostart(logger)
   if (shouldStartHidden()) {
     // Launched by the login autostart: park in the tray, don't pop the window
     // on every boot. restoreMainWindow creates it on demand from mainUrl.

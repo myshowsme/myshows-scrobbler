@@ -12,7 +12,7 @@
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-2b2b2b)](https://github.com/myshowsme/myshows-scrobbler/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[Installation](#installation) · [Quick start](#quick-start) · [Sources](#sources) · [Without the app](#without-the-desktop-app) · [Development](#development)
+[Installation](#installation) · [Quick start](#quick-start) · [Sources](#sources) · [Lampa](#lampa) · [Without the app](#without-the-desktop-app) · [Development](#development)
 
 </div>
 
@@ -77,6 +77,18 @@ The app lives in the tray and keeps scrobbling with the window closed. Updates c
 - The scrobbler must run on the same machine as the player. Host processes are not visible from Docker.
 - Players wired through the Setup panel report an exact position via their API. For everything else, progress is estimated from process uptime, so pauses and seeking are invisible in that mode.
 - Title, season and episode are extracted from the file name automatically: [guessit-js](https://github.com/wuestholz/guessit-js).
+
+## Lampa
+
+Watching in [Lampa](https://lampa.mx)? It has a plugin of its own — [myshows-scrobbler-lampa](https://github.com/myshowsme/myshows-scrobbler-lampa). It scrobbles to MyShows straight from Lampa, so the desktop app from this repo isn't needed — including on TVs, where there is nothing to run it on (Tizen, webOS; the plugin is built for ES5).
+
+Install it via **Settings → Extensions → Add plugin by URL**:
+
+```
+https://myshowsme.github.io/myshows-scrobbler-lampa/myshows.js
+```
+
+From there it's the same [MyShows token](https://en.myshows.me/profile/watch-history/) in the plugin settings (verified as soon as you paste it) and a configurable scrobble threshold (50–95%). The token is stored per Lampa profile.
 
 ## Without the desktop app
 

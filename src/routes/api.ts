@@ -11,7 +11,7 @@ import type {
   NowPlayingEntry,
   UpdateController,
 } from '../types.js'
-import { isLocalSource, sourceNeedsUrl, SOURCE_TYPES } from '../types.js'
+import { isLocalSource, sourceNeedsUrl, IDLE_UPDATE_STATUS, SOURCE_TYPES } from '../types.js'
 import type { BaseAdapter } from '../adapters/base.js'
 import { createAdapter } from '../adapters/registry.js'
 import {
@@ -120,9 +120,9 @@ export async function apiRoutes(fastify: FastifyInstance, ctx: ApiContext): Prom
 
   // ── App auto-update (Electron only) ──
 
-  // GET /api/update — availability for the UI's version indicator/prompt.
+  // GET /api/update — availability + download progress for the UI's banner.
   fastify.get('/api/update', async () => {
-    return ctx.updates?.getStatus() ?? { available: false, version: null, downloading: false }
+    return ctx.updates?.getStatus() ?? IDLE_UPDATE_STATUS
   })
 
   // POST /api/update/install — user opted to update.
