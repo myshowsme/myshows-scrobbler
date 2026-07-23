@@ -234,6 +234,12 @@
     "available": "Доступна новая версия {version}",
     "install": "Обновить",
     "downloading": "Загрузка…",
+    "downloadingPercent": "Загрузка… {percent}%",
+    "installing": "Установка…",
+    "progressLabel": "Прогресс загрузки обновления",
+    "etaSeconds": "осталось {value} с",
+    "etaMinutes": "осталось {value} мин",
+    "failed": "Не удалось обновить: {reason}",
     "skip": "Пропустить эту версию",
     "indicator": "Доступно обновление"
   },

@@ -234,6 +234,12 @@
     "available": "A new version {version} is available",
     "install": "Update",
     "downloading": "Downloading…",
+    "downloadingPercent": "Downloading… {percent}%",
+    "installing": "Installing…",
+    "progressLabel": "Update download progress",
+    "etaSeconds": "{value} s left",
+    "etaMinutes": "{value} min left",
+    "failed": "Update failed: {reason}",
     "skip": "Skip this version",
     "indicator": "An update is available"
   },

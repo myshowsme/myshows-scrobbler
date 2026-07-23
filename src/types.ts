@@ -117,7 +117,7 @@ export type SourceErrorCode = 'auth' | 'network' | 'unreachable'
 
 // ── App auto-update (Electron) ──
 
-/** Current update availability, surfaced to the UI. */
+/** Current update availability and download progress, surfaced to the UI. */
 export interface UpdateStatus {
   /** A newer (non-skipped) version is available. */
   available: boolean
@@ -125,7 +125,36 @@ export interface UpdateStatus {
   version: string | null
   /** True while the update is being downloaded after the user opted in. */
   downloading: boolean
+  /** Download progress 0–100, or null before the first progress event. */
+  percent: number | null
+  /** Bytes fetched so far, or null before the first progress event. */
+  transferred: number | null
+  /** Total download size in bytes, or null before it is known. */
+  total: number | null
+  /** Current download speed in bytes/s — drives the "left" estimate. */
+  bytesPerSecond: number | null
+  /** Download finished: the installer is starting and the app is about to quit. */
+  installing: boolean
+  /**
+   * Last download/install failure. Only set for a transfer the user asked for —
+   * a failed background check stays in the log, since there is nothing on
+   * screen it would explain.
+   */
+  error: string | null
 }
+
+/** Nothing in flight. Also the reply in headless mode, where there is no updater. */
+export const IDLE_UPDATE_STATUS: UpdateStatus = Object.freeze({
+  available: false,
+  version: null,
+  downloading: false,
+  percent: null,
+  transferred: null,
+  total: null,
+  bytesPerSecond: null,
+  installing: false,
+  error: null,
+})
 
 /**
  * Update actions the UI can invoke. Implemented by the Electron main process

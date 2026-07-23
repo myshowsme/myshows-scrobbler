@@ -102,6 +102,27 @@ export interface UpdateStatus {
   available: boolean
   version: string | null
   downloading: boolean
+  /** Download progress 0–100, or null before the first progress event. */
+  percent: number | null
+  transferred: number | null
+  total: number | null
+  bytesPerSecond: number | null
+  /** Download finished: the installer is starting and the app is about to quit. */
+  installing: boolean
+  error: string | null
+}
+
+/** Nothing in flight — also what headless mode reports. */
+export const IDLE_UPDATE_STATUS: UpdateStatus = {
+  available: false,
+  version: null,
+  downloading: false,
+  percent: null,
+  transferred: null,
+  total: null,
+  bytesPerSecond: null,
+  installing: false,
+  error: null,
 }
 
 export async function fetchUpdateStatus(): Promise<UpdateStatus> {

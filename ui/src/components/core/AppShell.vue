@@ -28,13 +28,8 @@ import { useEmbySignIn } from '../../composables/useEmbySignIn'
 import { useQuickConnect } from '../../composables/useQuickConnect'
 import { useSourceStatuses } from '../../composables/useSourceStatuses'
 import { useTokenLookup } from '../../composables/useTokenLookup'
-import {
-  checkMyShows,
-  fetchUpdateStatus,
-  installUpdate,
-  skipUpdate,
-  type UpdateStatus,
-} from '../../api'
+import { useAppUpdate } from '../../composables/useAppUpdate'
+import { checkMyShows } from '../../api'
 import { isLocalSource, sourceNeedsUrl, hasProbeCredentials } from '../../utils/source-type'
 
 const TOKEN_DEBOUNCE_MS = 600
@@ -71,33 +66,36 @@ async function onConfigSaved() {
   await config.load()
 }
 
-// App update availability (Electron)
-const updateStatus = ref<UpdateStatus>({ available: false, version: null, downloading: false })
+// App update availability + download progress (Electron)
+const update = useAppUpdate()
+const updateStatus = update.status
 
-async function refreshUpdateStatus() {
-  try {
-    updateStatus.value = await fetchUpdateStatus()
-  } catch {
-    // Headless / endpoint missing: leave as unavailable
+// Label on the primary button: idle → "Update", then the live percent, then
+// "Installing…" once the download hands off to the installer.
+const updateButtonLabel = computed(() => {
+  if (updateStatus.value.installing) {
+    return t('update.installing')
   }
-}
+  if (!updateStatus.value.downloading) {
+    return t('update.install')
+  }
+  const percent = updateStatus.value.percent
+  return percent === null
+    ? t('update.downloading')
+    : t('update.downloadingPercent', { percent: Math.round(percent) })
+})
 
-async function onUpdateInstall() {
-  updateStatus.value = { ...updateStatus.value, downloading: true }
-  try {
-    await installUpdate()
-  } catch {
-    updateStatus.value = { ...updateStatus.value, downloading: false }
+// "осталось 25 с" / "3 min left". Abbreviated units on purpose: they read the
+// same for every count, so no locale needs plural forms here. Dropped once the
+// download hands off to the installer — nothing left to wait for.
+const updateEtaText = computed(() => {
+  const eta = update.eta.value
+  if (!eta || updateStatus.value.installing) {
+    return null
   }
-}
-
-async function onUpdateSkip() {
-  try {
-    await skipUpdate()
-  } finally {
-    updateStatus.value = { available: false, version: null, downloading: false }
-  }
-}
+  const key = eta.unit === 'seconds' ? 'update.etaSeconds' : 'update.etaMinutes'
+  return t(key, { value: eta.value })
+})
 
 onMounted(async () => {
   await config.load()
@@ -111,9 +109,8 @@ onMounted(async () => {
     }
   }
 
-  void refreshUpdateStatus()
-  // The main process re-checks every few hours; poll so the UI catches it.
-  setInterval(() => void refreshUpdateStatus(), 60_000)
+  // Self-paced poll: slow while idle, once a second while a download runs.
+  void update.start()
 })
 
 // Latest successful scrobble from the feed, used as the fallback hero when
@@ -438,27 +435,58 @@ function onTokenEdit(value: string) {
     />
 
     <div v-if="updateStatus.available" class="AppShell__update">
-      <span class="AppShell__update-text">
-        {{ t('update.available', { version: updateStatus.version }) }}
-      </span>
-      <div class="AppShell__update-actions">
-        <button
-          type="button"
-          class="AppShell__update-btn AppShell__update-btn--primary"
-          :disabled="updateStatus.downloading"
-          @click="onUpdateInstall"
-        >
-          {{ updateStatus.downloading ? t('update.downloading') : t('update.install') }}
-        </button>
-        <button
-          type="button"
-          class="AppShell__update-btn"
-          :disabled="updateStatus.downloading"
-          @click="onUpdateSkip"
-        >
-          {{ t('update.skip') }}
-        </button>
+      <div class="AppShell__update-row">
+        <span class="AppShell__update-text">
+          {{ t('update.available', { version: updateStatus.version }) }}
+        </span>
+        <div class="AppShell__update-actions">
+          <button
+            type="button"
+            class="AppShell__update-btn AppShell__update-btn--primary"
+            :disabled="update.isBusy.value"
+            @click="update.install()"
+          >
+            {{ updateButtonLabel }}
+          </button>
+          <button
+            type="button"
+            class="AppShell__update-btn"
+            :disabled="update.isBusy.value"
+            @click="update.skip()"
+          >
+            {{ t('update.skip') }}
+          </button>
+        </div>
       </div>
+
+      <div v-if="update.isBusy.value" class="AppShell__update-progress">
+        <div
+          class="AppShell__update-bar"
+          role="progressbar"
+          :aria-valuenow="
+            updateStatus.percent === null ? undefined : Math.round(updateStatus.percent)
+          "
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-label="t('update.progressLabel')"
+        >
+          <!-- No percent yet (the transfer hasn't reported in): run an
+               indeterminate sweep instead of a bar frozen at zero. -->
+          <div
+            class="AppShell__update-fill"
+            :class="{ 'AppShell__update-fill--pending': updateStatus.percent === null }"
+            :style="{ width: `${updateStatus.percent ?? 100}%` }"
+          />
+        </div>
+        <span v-if="update.progressText.value" class="AppShell__update-meta">
+          {{ update.progressText.value
+          }}<template v-if="updateEtaText"> · {{ updateEtaText }}</template>
+        </span>
+      </div>
+
+      <span v-if="updateStatus.error" class="AppShell__update-error">
+        {{ t('update.failed', { reason: updateStatus.error }) }}
+      </span>
     </div>
 
     <main class="AppShell__main">
@@ -617,14 +645,63 @@ function onTokenEdit(value: string) {
 
   &__update {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 12px;
+    gap: 8px;
     padding: 10px 16px;
     background: var(--v2-bg-soft, #f4f6f8);
     border-bottom: 1px solid var(--v2-border-soft);
     font-size: 13px;
+  }
+
+  &__update-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  &__update-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 460px;
+  }
+
+  &__update-bar {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--v2-border-soft, #e3e4e8);
+    overflow: hidden;
+  }
+
+  &__update-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--v2-brand, #e63946);
+    // Progress arrives once a second; ease between samples so the bar creeps
+    // instead of stepping.
+    transition: width 0.9s linear;
+
+    &--pending {
+      animation: AppShell-update-pending 1.1s ease-in-out infinite;
+      transition: none;
+    }
+  }
+
+  &__update-meta {
+    color: var(--v2-text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__update-error {
+    color: var(--v2-error);
+    font-size: 12px;
   }
 
   &__update-text {
@@ -678,6 +755,20 @@ function onTokenEdit(value: string) {
         color: #fff;
       }
     }
+  }
+}
+
+// Indeterminate sweep for the stretch between "download started" and the first
+// progress report from electron-updater.
+@keyframes AppShell-update-pending {
+  0% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.25;
   }
 }
 </style>
