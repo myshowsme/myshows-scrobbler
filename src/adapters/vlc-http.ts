@@ -228,10 +228,15 @@ export function activeAudioFromVlc(raw: VlcStatusResponse): VlcActiveAudio | nul
 }
 
 interface SessionRecord {
-  /** Last action emitted for this sessionId. */
-  lastAction: 'progress' | 'stopped' | null
-  /** Last raw VLC state — used to detect playing/paused → stopped transition. */
-  lastState: 'playing' | 'paused' | 'stopped' | 'idle' | null
+  /**
+   * The most recent actively-playing snapshot (filename + offsets). Kept so we
+   * can synthesise a final `stopped` even after VLC has dropped the file's meta
+   * — which it does the instant playback ends (see the comment in `poll`).
+   * Null when nothing is being tracked.
+   */
+  last: VlcSnapshot | null
+  /** Whether we've already emitted the final `stopped` for `last`. */
+  stoppedEmitted: boolean
 }
 
 /** VLC's documented state vocabulary. Anything else is normalised to "idle". */
@@ -383,7 +388,10 @@ export async function readVlcPasswordFromConfig(): Promise<string> {
 
 export class VlcHttpAdapter extends BaseAdapter {
   private readonly endpoint: string
-  private readonly sessions = new Map<string, SessionRecord>()
+  // VLC HTTP is a single player instance, so we track a single session (like
+  // the mpv adapter) rather than a per-filename map — that map never got a
+  // chance to close a file when VLC advanced to the next one.
+  private session: SessionRecord = { last: null, stoppedEmitted: false }
   private authHeader: string | null = null
 
   constructor(...args: ConstructorParameters<typeof BaseAdapter>) {
@@ -420,7 +428,7 @@ export class VlcHttpAdapter extends BaseAdapter {
   }
 
   protected override resetState(): void {
-    this.sessions.clear()
+    this.session = { last: null, stoppedEmitted: false }
     // Drop the cached auth header too so the next poll re-reads vlcrc — picks
     // up any password the user just rotated.
     this.authHeader = null
@@ -456,34 +464,57 @@ export class VlcHttpAdapter extends BaseAdapter {
     }
 
     const snapshot = snapshotFromVlc(body as VlcStatusResponse)
-    if (!snapshot.filename) {
-      // Player open but no file loaded; nothing to emit.
-      return
-    }
-    const sessionId = `vlc:${snapshot.filename}`
-    const prev = this.sessions.get(sessionId) ?? { lastAction: null, lastState: null }
+    const active = isActivelyPlaying(snapshot)
 
-    if (!isActivelyPlaying(snapshot)) {
-      // Emit one final `stopped` on the transition out of active playback.
-      const wasActive = prev.lastState === 'playing' || prev.lastState === 'paused'
-      if (wasActive) {
-        const event = buildEvent(snapshot, 'stopped')
-        if (event) {
-          await this.emitScrobble(event)
-        }
+    // Close the tracked file whenever the current file is no longer it. This
+    // covers BOTH ways a VLC session ends, neither of which the old per-file
+    // map caught:
+    //   • playlist auto-advance — VLC jumps straight from `playing` file A to
+    //     `playing` file B, with no `stopped` tick in between;
+    //   • manual stop / end of playlist — VLC reports `state: stopped` AND
+    //     drops `information.category.meta`, so `snapshot.filename` goes empty.
+    // In both cases we synthesise the final `stopped` from the last snapshot we
+    // captured while the file was actually playing.
+    if (
+      this.session.last &&
+      !this.session.stoppedEmitted &&
+      snapshot.filename !== this.session.last.filename
+    ) {
+      await this.emitStopForLast()
+    }
+
+    if (!active || !snapshot.filename) {
+      // Nothing playing now (idle / stopped / meta cleared). Close any session
+      // that a same-filename stop transition left open, then drop tracking once
+      // the player is truly empty so the next file starts fresh.
+      if (this.session.last && !this.session.stoppedEmitted) {
+        await this.emitStopForLast()
       }
-      this.sessions.set(sessionId, {
-        lastAction: wasActive ? 'stopped' : prev.lastAction,
-        lastState: snapshot.state,
-      })
+      if (!snapshot.filename) {
+        this.session = { last: null, stoppedEmitted: false }
+      }
       return
     }
 
+    // Actively playing a file → track this snapshot and emit progress.
+    this.session = { last: snapshot, stoppedEmitted: false }
     const event = buildEvent(snapshot, 'progress')
     if (event) {
       await this.emitScrobble(event)
     }
-    this.sessions.set(sessionId, { lastAction: 'progress', lastState: snapshot.state })
+  }
+
+  /** Emit one final `stopped` for the tracked file using its last known offsets. */
+  private async emitStopForLast(): Promise<void> {
+    const last = this.session.last
+    if (!last) {
+      return
+    }
+    const event = buildEvent(last, 'stopped')
+    if (event) {
+      await this.emitScrobble(event)
+    }
+    this.session = { last, stoppedEmitted: true }
   }
 
   private async ensureAuthHeader(): Promise<string> {
