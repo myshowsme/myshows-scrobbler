@@ -156,6 +156,56 @@ describe('readConfig / writeConfig', () => {
     expect(cfg.sources[0].pollInterval).toBe(15000)
   })
 
+  it('coerces a non-array user_filter (e.g. a bare string) to an empty array', () => {
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        myshows_token: 'tok',
+        myshows_url: 'https://example.test/api',
+        scrobble_percent: 80,
+        log_level: 'info',
+        sources: [
+          {
+            type: 'plex',
+            enabled: true,
+            url: 'http://plex:32400',
+            token: 'x',
+            poll_interval: 5000,
+            user_filter: 'Alice',
+          },
+        ],
+      }),
+    )
+
+    const cfg = readConfig()
+    expect(cfg.sources[0].userFilter).toEqual([])
+  })
+
+  it('drops non-string entries from a user_filter array, keeping the strings', () => {
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        myshows_token: 'tok',
+        myshows_url: 'https://example.test/api',
+        scrobble_percent: 80,
+        log_level: 'info',
+        sources: [
+          {
+            type: 'plex',
+            enabled: true,
+            url: 'http://plex:32400',
+            token: 'x',
+            poll_interval: 5000,
+            user_filter: ['alice', 42, null, 'bob', { id: 1 }],
+          },
+        ],
+      }),
+    )
+
+    const cfg = readConfig()
+    expect(cfg.sources[0].userFilter).toEqual(['alice', 'bob'])
+  })
+
   it('migrates a v1 flat Plex-only config to v2 sources array', () => {
     fs.writeFileSync(
       configPath,
@@ -184,5 +234,23 @@ describe('readConfig / writeConfig', () => {
     const persisted = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     expect(persisted.sources).toBeDefined()
     expect(persisted.sources[0].url).toBe('http://plex:32400')
+  })
+
+  it('coerces a non-array legacy plex_user_filter to an empty array during migration', () => {
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        myshows_token: 'legacy_tok',
+        plex_url: 'http://plex:32400',
+        plex_token: 'plex_tok',
+        plex_user_filter: 'Alice',
+        scrobble_percent: 85,
+        poll_interval: 2500,
+        log_level: 'info',
+      }),
+    )
+
+    const cfg = readConfig()
+    expect(cfg.sources[0].userFilter).toEqual([])
   })
 })

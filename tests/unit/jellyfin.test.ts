@@ -4,14 +4,14 @@ import { EmbyAdapter } from '../../src/adapters/emby.js'
 import type { SourceConfig, NormalizedEvent } from '../../src/types.js'
 import type { BaseAdapter } from '../../src/adapters/base.js'
 
-function makeConfig(type: 'jellyfin' | 'emby'): SourceConfig {
+function makeConfig(type: 'jellyfin' | 'emby', userFilter: string[] = []): SourceConfig {
   return {
     type,
     enabled: true,
     url: 'http://localhost:8096',
     token: 't',
     pollInterval: 5000,
-    userFilter: [],
+    userFilter,
   }
 }
 
@@ -376,5 +376,109 @@ describe('EmbyAdapter inherits Jellyfin polling', () => {
     expect(emitted[0].source).toBe('emby')
     expect(emitted[0].sessionId).toBe('sess-1:item:item-1')
     expect(emitted[0].action).toBe('progress')
+  })
+})
+
+describe('hidden user_filter for Jellyfin/Emby', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  /** Two sessions of the same item, played by two different viewers. */
+  const mine = { ...baseSession, Id: 'mine', UserId: 'u1', UserName: 'Alice' }
+  const theirs = { ...baseSession, Id: 'theirs', UserId: 'u2', UserName: 'Bob' }
+
+  function run(adapter: BaseAdapter, sessions: unknown[]): Promise<void> {
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/Sessions': () => sessionsResponse(sessions),
+        '/Items/item-1': () => itemResponse(baseSession.NowPlayingItem),
+      }),
+    )
+    return tick(adapter)
+  }
+
+  it('drops sessions of other users on Emby when a filter is set', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = new EmbyAdapter(makeConfig('emby', ['Alice']), {
+      onScrobble: async (e) => {
+        emitted.push(e)
+      },
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    await run(adapter, [mine, theirs])
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].sessionId).toBe('mine:item:item-1')
+  })
+
+  it('drops sessions of other users on Jellyfin when a filter is set', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = new JellyfinAdapter(makeConfig('jellyfin', ['Alice']), {
+      onScrobble: async (e) => {
+        emitted.push(e)
+      },
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    await run(adapter, [mine, theirs])
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].sessionId).toBe('mine:item:item-1')
+  })
+
+  it('matches by user id as well as by user name', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = new EmbyAdapter(makeConfig('emby', ['  U2 ']), {
+      onScrobble: async (e) => {
+        emitted.push(e)
+      },
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    await run(adapter, [mine, theirs])
+
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].sessionId).toBe('theirs:item:item-1')
+  })
+
+  it('drops a session with no viewer info when a filter is set', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = new EmbyAdapter(makeConfig('emby', ['Alice']), {
+      onScrobble: async (e) => {
+        emitted.push(e)
+      },
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    const anonymous = { ...baseSession, Id: 'anon', UserId: undefined, UserName: undefined }
+    await run(adapter, [anonymous])
+
+    expect(emitted).toHaveLength(0)
+  })
+
+  it('counts every viewer when the filter is empty', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = new EmbyAdapter(makeConfig('emby'), {
+      onScrobble: async (e) => {
+        emitted.push(e)
+      },
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    await run(adapter, [mine, theirs])
+
+    expect(emitted).toHaveLength(2)
   })
 })

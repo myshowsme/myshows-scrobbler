@@ -140,9 +140,9 @@ Everything is configurable from the UI, or by hand in `data/config.json`:
 - `scrobble_percent`: the "watched" threshold, in percent.
 - `poll_interval`: source polling period, ms.
 
-### Filtering Plex users
+### Filtering users
 
-On a shared Plex server, sessions from every user get scrobbled. To count only your own playback, add a `user_filter` to the `plex` source — a list of Plex usernames or user IDs. There is no UI field for it; set it by hand in `data/config.json`:
+On a shared Plex, Emby or Jellyfin server, sessions from every user get scrobbled. To count only your own playback, add a `user_filter` to the source — a list of usernames or user IDs. There is no UI field for it; set it by hand in `data/config.json`:
 
 ```json
 {
@@ -153,7 +153,18 @@ On a shared Plex server, sessions from every user get scrobbled. To count only y
 }
 ```
 
-Only sessions whose username (`User.title`) or ID (`User.id`) matches an entry are counted. Matching is case-insensitive and trims surrounding whitespace. An empty or omitted `user_filter` counts every viewer.
+The same for Emby or Jellyfin:
+
+```json
+{
+  "type": "emby",
+  "url": "http://localhost:8096",
+  "token": "emby_api_key",
+  "user_filter": ["UserName"]
+}
+```
+
+Only sessions whose username or ID matches an entry are counted — `User.title` and `User.id` on Plex, `UserName` and `UserId` on Emby and Jellyfin. Matching is case-insensitive and trims surrounding whitespace. An empty, whitespace-only, or omitted `user_filter` counts every viewer. A session where the server reports no user is dropped whenever a filter is set.
 
 ## Scrobble API
 

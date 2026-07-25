@@ -11,6 +11,7 @@ import {
 import { languageToIso } from '../utils/audio-track.js'
 import { percentFromPosition, ticksToMs, ticksToRuntimeMinutes } from './time.js'
 import { fetchWithTimeout } from '../http.js'
+import { matchesUserFilter, type FilterableUser } from './user-filter.js'
 
 // ── Jellyfin / Emby shared API types ──
 
@@ -91,6 +92,14 @@ function normalizeType(type?: string): 'movie' | 'episode' {
 
 function stateFromSession(session: JellyfinSession): PlaybackState {
   return session.PlayState?.IsPaused ? 'paused' : 'playing'
+}
+
+/**
+ * Map a Jellyfin/Emby session onto the shape the hidden `user_filter` matches:
+ * the server reports the viewer as `UserId` + `UserName` rather than a nested object.
+ */
+function sessionUser(session: JellyfinSession): FilterableUser {
+  return { id: session.UserId, title: session.UserName }
 }
 
 function buildSessionId(session: JellyfinSession, item: JellyfinItem): string {
@@ -347,6 +356,19 @@ export class JellyfinAdapter extends BaseAdapter {
     }
 
     const sessions = (await response.json()) as JellyfinSession[]
-    return sessions.filter((s) => s.NowPlayingItem && isScrobblableType(s.NowPlayingItem.Type))
+    return this.scrobblableSessions(sessions)
+  }
+
+  /**
+   * Sessions worth scrobbling: a playing video item, watched by a viewer the
+   * hidden `user_filter` (config-only) admits.
+   */
+  protected scrobblableSessions(sessions: JellyfinSession[]): JellyfinSession[] {
+    return sessions.filter(
+      (s) =>
+        s.NowPlayingItem &&
+        isScrobblableType(s.NowPlayingItem.Type) &&
+        matchesUserFilter(sessionUser(s), this.config.userFilter),
+    )
   }
 }

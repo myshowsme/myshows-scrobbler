@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vite-plus/test'
-import { matchesUserFilter } from './plex.js'
+import { matchesUserFilter } from '../../src/adapters/user-filter.js'
 
 describe('matchesUserFilter', () => {
   it('counts every viewer when the filter is empty', () => {
@@ -37,5 +37,9 @@ describe('matchesUserFilter', () => {
   it('does not match a partial id or title', () => {
     expect(matchesUserFilter({ id: '12', title: 'JuFrolovich' }, ['1'])).toBe(false)
     expect(matchesUserFilter({ id: '12', title: 'JuFrolovich' }, ['JuFrolov'])).toBe(false)
+  })
+
+  it('drops a viewer whose id and title are both absent when a filter is set', () => {
+    expect(matchesUserFilter({}, ['1'])).toBe(false)
   })
 })

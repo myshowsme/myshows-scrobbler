@@ -1,6 +1,5 @@
 import type { SourceType } from '../types.js'
-import { JellyfinAdapter, type JellyfinItem, type JellyfinSession } from './jellyfin.js'
-import { isScrobblableType } from './media-info.js'
+import { JellyfinAdapter, type JellyfinSession } from './jellyfin.js'
 import { fetchWithTimeout } from '../http.js'
 
 export class EmbyAdapter extends JellyfinAdapter {
@@ -23,9 +22,7 @@ export class EmbyAdapter extends JellyfinAdapter {
       throw new Error(`Emby API error: ${response.status}`)
     }
 
-    const sessions = (await response.json()) as Array<
-      JellyfinSession & { NowPlayingItem?: JellyfinItem }
-    >
-    return sessions.filter((s) => s.NowPlayingItem && isScrobblableType(s.NowPlayingItem.Type))
+    const sessions = (await response.json()) as JellyfinSession[]
+    return this.scrobblableSessions(sessions)
   }
 }

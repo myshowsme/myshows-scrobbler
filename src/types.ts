@@ -74,9 +74,10 @@ export interface SourceConfig {
   token: string
   pollInterval: number
   /**
-   * Hidden, config-only viewer filter (no UI). Honoured by Plex: when non-empty,
-   * only sessions whose `User.id` or `User.title` match an entry are counted.
-   * Empty = every viewer.
+   * Hidden, config-only viewer filter (no UI). Honoured by Plex (`User.id` /
+   * `User.title`) and by Emby/Jellyfin (`UserId` / `UserName`): when non-empty,
+   * only sessions whose viewer matches an entry are counted. Empty = every viewer.
+   * A session whose viewer the server did not report is dropped whenever a filter is set.
    */
   userFilter: string[]
 }

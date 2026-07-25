@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vite-plus/test'
-import { parseStremioId, buildEventFromLibItem, pickChangedIds, StremioAdapter } from './stremio.js'
-import * as api from './stremio-api.js'
-import type { StremioLibItem } from './stremio-api.js'
-import type { NormalizedEvent } from '../types.js'
+import {
+  parseStremioId,
+  buildEventFromLibItem,
+  pickChangedIds,
+  StremioAdapter,
+} from '../../src/adapters/stremio.js'
+import * as api from '../../src/adapters/stremio-api.js'
+import type { StremioLibItem } from '../../src/adapters/stremio-api.js'
+import type { NormalizedEvent } from '../../src/types.js'
 
 function libItem(over: Partial<StremioLibItem> = {}): StremioLibItem {
   return {

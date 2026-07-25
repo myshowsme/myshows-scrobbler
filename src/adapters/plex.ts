@@ -7,6 +7,7 @@ import { languageToIso } from '../utils/audio-track.js'
 import { msToRuntimeMinutes, percentFromPosition } from './time.js'
 import { fetchWithTimeout } from '../http.js'
 import { normalizeBaseUrl } from '../utils/url.js'
+import { matchesUserFilter } from './user-filter.js'
 
 // ── Plex API response types ──
 
@@ -112,27 +113,6 @@ function formatMeta(meta: PlexSession): string {
 
 function normalizeState(raw: string | undefined): PlaybackState {
   return raw === 'paused' ? 'paused' : 'playing'
-}
-
-/**
- * Hidden per-user filter (config-only `user_filter`). Empty = every viewer counts;
- * otherwise a session counts only if its `User.id` or `User.title` matches an entry
- * (trimmed, case-insensitive). A session with no `User` is dropped when a filter is set.
- */
-export function matchesUserFilter(
-  user: { id?: string; title?: string } | undefined,
-  filter: string[],
-): boolean {
-  const wanted = filter.map((v) => v.trim().toLowerCase()).filter((v) => v.length > 0)
-  if (wanted.length === 0) {
-    return true
-  }
-  if (!user) {
-    return false
-  }
-  const id = user.id?.trim().toLowerCase()
-  const title = user.title?.trim().toLowerCase()
-  return (!!id && wanted.includes(id)) || (!!title && wanted.includes(title))
 }
 
 function extractHdr(streams: PlexStream[] | undefined): string | null {

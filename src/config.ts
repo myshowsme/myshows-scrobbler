@@ -49,6 +49,14 @@ function normalizeMinDuration(value: unknown): number {
   return value
 }
 
+/** Coerce a possibly-garbage `user_filter` value (hand-edited, unvalidated) to a string array. */
+function normalizeUserFilter(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.filter((v): v is string => typeof v === 'string')
+}
+
 const DEFAULT_SOURCE: Omit<SourceConfig, 'type'> = {
   enabled: true,
   url: '',
@@ -70,7 +78,7 @@ function rawSourceToConfig(raw: RawSourceConfig): SourceConfig {
     url: normalizeSourceUrl(raw.url),
     token: raw.token ?? '',
     pollInterval: raw.poll_interval ?? DEFAULT_SOURCE.pollInterval,
-    userFilter: raw.user_filter ?? [],
+    userFilter: normalizeUserFilter(raw.user_filter),
   }
 }
 
@@ -138,7 +146,7 @@ function migrateLegacy(data: LegacyConfig & Partial<RawConfig>): RawConfig {
       url: normalizeSourceUrl(data.plex_url),
       token: data.plex_token ?? '',
       poll_interval: data.poll_interval ?? DEFAULT_SOURCE.pollInterval,
-      user_filter: data.plex_user_filter ?? [],
+      user_filter: normalizeUserFilter(data.plex_user_filter),
     })
   }
 

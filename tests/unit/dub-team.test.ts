@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vite-plus/test'
-import { extractDubTeam, clearDubTeamCache } from './dub-team.js'
+import { extractDubTeam, clearDubTeamCache } from '../../src/utils/dub-team.js'
 
 describe('extractDubTeam', () => {
   beforeEach(() => {

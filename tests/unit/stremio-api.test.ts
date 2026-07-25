@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vite-plus/test'
-import { datastoreMeta, datastoreGet } from './stremio-api.js'
+import { datastoreMeta, datastoreGet } from '../../src/adapters/stremio-api.js'
 
 afterEach(() => {
   vi.unstubAllGlobals()

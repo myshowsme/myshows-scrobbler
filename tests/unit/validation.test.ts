@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test'
-import { isAsciiToken } from './validation.js'
+import { isAsciiToken } from '../../src/utils/validation.js'
 
 describe('isAsciiToken', () => {
   it('accepts empty and ASCII-only tokens', () => {
