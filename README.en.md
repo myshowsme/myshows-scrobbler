@@ -149,7 +149,7 @@ On a shared Plex, Emby or Jellyfin server, sessions from every user get scrobble
   "type": "plex",
   "url": "http://localhost:32400",
   "token": "plex_x_token",
-  "user_filter": ["UserName"]
+  "user_filter": ["username"]
 }
 ```
 
@@ -160,11 +160,13 @@ The same for Emby or Jellyfin:
   "type": "emby",
   "url": "http://localhost:8096",
   "token": "emby_api_key",
-  "user_filter": ["UserName"]
+  "user_filter": ["username"]
 }
 ```
 
-Only sessions whose username or ID matches an entry are counted — `User.title` and `User.id` on Plex, `UserName` and `UserId` on Emby and Jellyfin. Matching is case-insensitive and trims surrounding whitespace. An empty, whitespace-only, or omitted `user_filter` counts every viewer. A session where the server reports no user is dropped whenever a filter is set.
+Only sessions whose username or ID matches an entry are counted — `User.title` and `User.id` on Plex, `UserName` and `UserId` on Emby and Jellyfin. Case and surrounding whitespace don't matter.
+Without a `user_filter`, every viewer counts.
+Sessions the filter turns away are named in the `debug` log.
 
 ## Scrobble API
 

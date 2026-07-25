@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { info, error as logError } from './logger.js'
+import { info, warn, error as logError } from './logger.js'
 import type {
   AppConfig,
   SourceConfig,
@@ -49,12 +49,38 @@ function normalizeMinDuration(value: unknown): number {
   return value
 }
 
-/** Coerce a possibly-garbage `user_filter` value (hand-edited, unvalidated) to a string array. */
-function normalizeUserFilter(value: unknown): string[] {
-  if (!Array.isArray(value)) {
+/**
+ * Coerce a possibly-garbage `user_filter` value (hand-edited, unvalidated) to a string
+ * array, warning about anything thrown away. Falling back to an empty filter means
+ * "count every viewer" — the opposite of what its author wanted — so a lone string is
+ * read as a single entry rather than discarded, and everything else is warned about.
+ */
+function normalizeUserFilter(value: unknown, source: string): string[] {
+  if (value === undefined || value === null) {
     return []
   }
-  return value.filter((v): v is string => typeof v === 'string')
+
+  // `"user_filter": "alice"` — brackets forgotten. The intent is unambiguous, and
+  // honouring it beats degrading to "everyone counts" over a pair of characters.
+  if (typeof value === 'string') {
+    warn(`"user_filter" of ${source} is a string, not an array — reading it as ["${value}"]`)
+    return [value]
+  }
+
+  if (!Array.isArray(value)) {
+    warn(
+      `Ignoring "user_filter" of ${source}: expected an array of strings, got ${typeof value} — every viewer will be counted`,
+    )
+    return []
+  }
+
+  const entries = value.filter((v): v is string => typeof v === 'string')
+  if (entries.length !== value.length) {
+    warn(
+      `Dropped ${value.length - entries.length} non-string entries from "user_filter" of ${source}`,
+    )
+  }
+  return entries
 }
 
 const DEFAULT_SOURCE: Omit<SourceConfig, 'type'> = {
@@ -78,7 +104,7 @@ function rawSourceToConfig(raw: RawSourceConfig): SourceConfig {
     url: normalizeSourceUrl(raw.url),
     token: raw.token ?? '',
     pollInterval: raw.poll_interval ?? DEFAULT_SOURCE.pollInterval,
-    userFilter: normalizeUserFilter(raw.user_filter),
+    userFilter: normalizeUserFilter(raw.user_filter, `source "${raw.type}"`),
   }
 }
 
@@ -146,7 +172,7 @@ function migrateLegacy(data: LegacyConfig & Partial<RawConfig>): RawConfig {
       url: normalizeSourceUrl(data.plex_url),
       token: data.plex_token ?? '',
       poll_interval: data.poll_interval ?? DEFAULT_SOURCE.pollInterval,
-      user_filter: normalizeUserFilter(data.plex_user_filter),
+      user_filter: normalizeUserFilter(data.plex_user_filter, 'legacy "plex_user_filter"'),
     })
   }
 
