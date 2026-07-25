@@ -353,10 +353,10 @@ export class JellyfinAdapter extends BaseAdapter {
   }
 
   /**
-   * Subclasses vary the endpoint through `sessionsUrl()` instead of overriding this,
-   * so the hidden `user_filter` below can never be skipped by accident.
+   * `private` on purpose: subclasses vary the endpoint through `sessionsUrl()`, and the
+   * compiler now refuses an override here, so the hidden `user_filter` cannot be skipped.
    */
-  protected async fetchSessions(): Promise<JellyfinSession[]> {
+  private async fetchSessions(): Promise<JellyfinSession[]> {
     const response = await fetchWithTimeout(this.sessionsUrl(), { headers: this.getHeaders() })
 
     if (!response.ok) {

@@ -51,12 +51,20 @@ function normalizeMinDuration(value: unknown): number {
 
 /**
  * Coerce a possibly-garbage `user_filter` value (hand-edited, unvalidated) to a string
- * array, warning about anything thrown away. The warning is the point: a malformed
- * filter degrades to "count every viewer", the opposite of what its author wanted.
+ * array, warning about anything thrown away. Falling back to an empty filter means
+ * "count every viewer" — the opposite of what its author wanted — so a lone string is
+ * read as a single entry rather than discarded, and everything else is warned about.
  */
 function normalizeUserFilter(value: unknown, source: string): string[] {
   if (value === undefined || value === null) {
     return []
+  }
+
+  // `"user_filter": "alice"` — brackets forgotten. The intent is unambiguous, and
+  // honouring it beats degrading to "everyone counts" over a pair of characters.
+  if (typeof value === 'string') {
+    warn(`"user_filter" of ${source} is a string, not an array — reading it as ["${value}"]`)
+    return [value]
   }
 
   if (!Array.isArray(value)) {
