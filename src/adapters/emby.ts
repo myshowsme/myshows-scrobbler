@@ -1,6 +1,5 @@
 import type { SourceType } from '../types.js'
-import { JellyfinAdapter, type JellyfinSession } from './jellyfin.js'
-import { fetchWithTimeout } from '../http.js'
+import { JellyfinAdapter } from './jellyfin.js'
 
 export class EmbyAdapter extends JellyfinAdapter {
   override get name(): SourceType {
@@ -14,15 +13,8 @@ export class EmbyAdapter extends JellyfinAdapter {
     }
   }
 
-  protected override async fetchSessions(): Promise<JellyfinSession[]> {
-    const url = `${this.config.url}/Sessions?ActiveWithinSeconds=60`
-    const response = await fetchWithTimeout(url, { headers: this.getHeaders() })
-
-    if (!response.ok) {
-      throw new Error(`Emby API error: ${response.status}`)
-    }
-
-    const sessions = (await response.json()) as JellyfinSession[]
-    return this.scrobblableSessions(sessions)
+  /** Emby keeps stale sessions in the list, so ask only for recently-active ones. */
+  protected override sessionsUrl(): string {
+    return `${this.config.url}/Sessions?ActiveWithinSeconds=60`
   }
 }

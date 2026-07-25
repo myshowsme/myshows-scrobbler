@@ -481,4 +481,68 @@ describe('hidden user_filter for Jellyfin/Emby', () => {
 
     expect(emitted).toHaveLength(2)
   })
+
+  it('never emits a stopped event for a filtered-out session that disappears', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = new EmbyAdapter(makeConfig('emby', ['Alice']), {
+      onScrobble: async (e) => {
+        emitted.push(e)
+      },
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    await run(adapter, [mine, theirs])
+    // Bob closes his player, Alice keeps watching: Bob was never tracked, so his
+    // vanishing must not look like a session that ended.
+    await run(adapter, [mine])
+
+    expect(emitted.map((e) => e.action)).toEqual(['progress'])
+  })
+
+  it('logs the viewers it turned away instead of dropping them silently', async () => {
+    const logs: string[] = []
+    const adapter = new EmbyAdapter(makeConfig('emby', ['Alice']), {
+      onScrobble: async () => {},
+      onLog: (_level, message) => {
+        logs.push(message)
+      },
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    await run(adapter, [mine, theirs])
+
+    expect(logs.some((l) => l.includes('user_filter dropped 1 session(s): Bob (u2)'))).toBe(true)
+  })
+})
+
+describe('EmbyAdapter session endpoint', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('asks Emby only for recently-active sessions', async () => {
+    const requested: string[] = []
+    const adapter = new EmbyAdapter(makeConfig('emby'), {
+      onScrobble: async () => {},
+      onLog: () => {},
+    })
+    ;(adapter as unknown as { running: boolean }).running = true
+
+    vi.stubGlobal('fetch', ((url: string) => {
+      requested.push(url)
+      if (url.includes('/Sessions')) {
+        return Promise.resolve(sessionsResponse([baseSession]))
+      }
+      return Promise.resolve(itemResponse(baseSession.NowPlayingItem))
+    }) as typeof fetch)
+
+    await tick(adapter)
+
+    expect(requested[0]).toBe('http://localhost:8096/Sessions?ActiveWithinSeconds=60')
+  })
 })

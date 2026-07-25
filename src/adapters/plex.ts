@@ -7,7 +7,7 @@ import { languageToIso } from '../utils/audio-track.js'
 import { msToRuntimeMinutes, percentFromPosition } from './time.js'
 import { fetchWithTimeout } from '../http.js'
 import { normalizeBaseUrl } from '../utils/url.js'
-import { matchesUserFilter } from './user-filter.js'
+import { applyUserFilter, type FilterableUser } from './user-filter.js'
 
 // ── Plex API response types ──
 
@@ -113,6 +113,14 @@ function formatMeta(meta: PlexSession): string {
 
 function normalizeState(raw: string | undefined): PlaybackState {
   return raw === 'paused' ? 'paused' : 'playing'
+}
+
+/**
+ * Map a Plex session onto the shape the hidden `user_filter` matches: Plex reports
+ * the viewer as a nested `User` object with a `title` for the display name.
+ */
+function sessionUser(session: PlexSession): FilterableUser {
+  return { id: session.User?.id, name: session.User?.title }
 }
 
 function extractHdr(streams: PlexStream[] | undefined): string | null {
@@ -485,14 +493,22 @@ export class PlexAdapter extends BaseAdapter {
     // MyShows tracks shows/movies only. Plex `/status/sessions` also surfaces
     // music (`track`), trailers/extras (`clip`) and photos — drop anything that
     // isn't a movie or episode so a played track never scrobbles as an episode.
+    const playing = sessions.filter((s) => isScrobblableType((s as { type?: string }).type))
+
     // Hidden `user_filter` (config-only) additionally restricts to specific viewers.
-    return sessions
-      .filter((s) => isScrobblableType((s as { type?: string }).type))
-      .filter((s) => matchesUserFilter(s.User, this.config.userFilter))
-      .map((s) => ({
-        ...s,
-        ratingKey: s.ratingKey || s.key?.split('/').pop() || '',
-      }))
+    const { admitted, droppedMessage } = applyUserFilter(
+      playing,
+      sessionUser,
+      this.config.userFilter,
+    )
+    if (droppedMessage) {
+      this.log('debug', droppedMessage)
+    }
+
+    return admitted.map((s) => ({
+      ...s,
+      ratingKey: s.ratingKey || s.key?.split('/').pop() || '',
+    }))
   }
 
   private async fetchMetadataWithRating(ratingKey: string): Promise<{
