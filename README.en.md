@@ -51,14 +51,14 @@ The app lives in the tray and keeps scrobbling with the window closed. Updates c
 ## Quick start
 
 1. **MyShows token.** Get the token from your [profile](https://en.myshows.me/profile/watch-history/) and paste it into the field at the top; it is verified immediately.
-2. **Enable a source.** If Plex or Kodi run on the same machine, the token and URL are filled in automatically. Jellyfin offers Quick Connect (a code on screen, confirmed on the server), Emby offers username/password sign-in. No media server? Enable "Local player".
+2. **Enable a source.** If Plex or Kodi run on the same machine, the token and URL are filled in automatically. If they aren't, see [finding your Plex token and URL](docs/plex-token.en.md). Jellyfin offers Quick Connect (a code on screen, confirmed on the server), Emby offers username/password sign-in. No media server? Enable "Local player".
 3. **Play something.** A "Now playing" card shows up in the app, which means your watch progress is being sent to MyShows.
 
 ## Sources
 
 | Source                        | Setup                                                                                                                                                                                                                                        |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Plex**                      | Token is discovered automatically from a local Plex Media Server. For a remote server, paste the `X-Plex-Token` manually                                                                                                                     |
+| **Plex**                      | Token is discovered automatically from a local Plex Media Server. For a remote server, paste the `X-Plex-Token` manually; if auto-discovery misses, see [finding your Plex token and URL](docs/plex-token.en.md)                             |
 | **Jellyfin**                  | Quick Connect or an API key                                                                                                                                                                                                                  |
 | **Emby**                      | Username/password sign-in or an API key                                                                                                                                                                                                      |
 | **Kodi**                      | Web interface username, password and port are discovered automatically, or set by hand                                                                                                                                                       |

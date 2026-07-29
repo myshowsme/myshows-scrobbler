@@ -15,11 +15,18 @@ const execAsync = promisify(exec)
  * weakens.
  */
 
-const VALID_KEY = /^HK(?:CU|LM|CR|U|CC)\\[A-Za-z0-9 \\_\-.]+$/
+// Commas are allowed because vendor keys legitimately contain them —
+// `HKCU\Software\Plex, Inc.\Plex Media Server` is the one we read.
+const VALID_KEY = /^HK(?:CU|LM|CR|U|CC)\\[A-Za-z0-9 ,\\_\-.]+$/
 const VALID_VALUE_NAME = /^[A-Za-z0-9_-]+$/
 
+/** Exported so callers can assert their hard-coded keys stay valid in tests. */
+export function isSafeRegistryKey(key: string): boolean {
+  return VALID_KEY.test(key)
+}
+
 function assertSafeKey(key: string): void {
-  if (!VALID_KEY.test(key)) {
+  if (!isSafeRegistryKey(key)) {
     throw new Error(`Unsafe registry key: ${key}`)
   }
 }

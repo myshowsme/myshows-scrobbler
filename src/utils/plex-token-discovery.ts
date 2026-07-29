@@ -3,6 +3,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { readRegistryValue } from '../setup/helpers/windows-registry.js'
 import { memoizeAsync } from './memoize-async.js'
 
 /**
@@ -10,9 +11,10 @@ import { memoizeAsync } from './memoize-async.js'
  * config: Preferences.xml on Windows/Linux/Docker, or the NSUserDefaults
  * binary plist on native macOS (decoded with plutil).
  *
- * Note: HKCU also has a PlexOnlineToken on Windows, but PMS rotates the
- * token in Preferences.xml without updating the registry mirror, so the
- * registry copy can be stale. Only the file is trustworthy.
+ * Windows additionally falls back to HKCU once the files miss — see
+ * `discoverPlexTokenFromWindowsRegistry`. Preferences.xml stays the primary
+ * source there because PMS can rotate the token in the file without
+ * refreshing its registry copy, which would leave us serving a stale one.
  */
 
 /** Why discovery returned no token. Shown verbatim in UI and CLI. */
@@ -50,6 +52,9 @@ export function plexPreferencesPathCandidates(): string[] {
 
   if (process.platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local')
+    // A data directory moved off %LOCALAPPDATA% isn't listed here — its root
+    // is only knowable from the registry, so it's handled as a fallback in
+    // discoverPlexTokenFromWindowsRegistry.
     return [
       // Current installer layout (verified on 1.40+ builds)
       path.join(localAppData, 'Plex', 'Plex Media Server', 'Preferences.xml'),
@@ -166,11 +171,81 @@ function convertPlistToXml(buf: Buffer): Promise<string> {
 }
 
 /**
+ * Where a Windows PMS mirrors its preferences. Per-user: this only resolves
+ * when the scrobbler and Plex run under the same Windows account. A PMS
+ * installed as a service under another account keeps its own hive, and the
+ * user has to paste the token by hand.
+ */
+export const WINDOWS_PLEX_REGISTRY_KEY = 'HKCU\\Software\\Plex, Inc.\\Plex Media Server'
+
+/**
+ * Windows-only fallbacks, tried after the standard file candidates come up
+ * empty. Two distinct failure modes are covered:
+ *
+ * 1. The data directory was moved off `%LOCALAPPDATA%` — a common tweak on
+ *    machines with a big library. The new root is in the registry under
+ *    `LocalAppDataPath`, so Preferences.xml is still findable.
+ * 2. The install keeps preferences in the registry only, with no
+ *    Preferences.xml anywhere, and `PlexOnlineToken` is read directly.
+ *
+ * Returns `null` when neither applies, so the caller keeps the file probe's
+ * own reason code.
+ */
+async function discoverPlexTokenFromWindowsRegistry(): Promise<PlexTokenDiscovery | null> {
+  const dataDir = await readRegistryValue(WINDOWS_PLEX_REGISTRY_KEY, 'LocalAppDataPath')
+  if (typeof dataDir?.value === 'string' && dataDir.value.trim()) {
+    // The value names the parent of the data directory, not the data
+    // directory itself — Plex appends `Plex Media Server` to it.
+    const relocated = await discoverFromConfigFiles([
+      {
+        path: path.join(dataDir.value.trim(), 'Plex Media Server', 'Preferences.xml'),
+        format: 'xml',
+      },
+    ])
+    // A found-but-tokenless file is authoritative: the server is signed out,
+    // and the registry's PlexOnlineToken is at best a stale leftover — never
+    // serve it past the file. Other misses (ENOENT, parse) do fall through.
+    if (relocated.token || relocated.reason === 'not-signed-in') {
+      return relocated
+    }
+  }
+
+  const entry = await readRegistryValue(WINDOWS_PLEX_REGISTRY_KEY, 'PlexOnlineToken')
+  const token = typeof entry?.value === 'string' ? entry.value.trim() : ''
+  if (token) {
+    return { token, source: WINDOWS_PLEX_REGISTRY_KEY }
+  }
+
+  // No token anywhere. `MachineIdentifier` is written on first run and
+  // survives signing out, so its presence separates "installed but signed
+  // out" from "no PMS under this account".
+  const installed = await readRegistryValue(WINDOWS_PLEX_REGISTRY_KEY, 'MachineIdentifier')
+  if (installed) {
+    return { token: null, reason: 'not-signed-in', source: WINDOWS_PLEX_REGISTRY_KEY }
+  }
+
+  return null
+}
+
+/**
  * Probe the candidate configs for a token. Doesn't throw: failures come
  * back as a reason code so the UI and CLI can tell the user why.
  */
 export async function discoverPlexToken(): Promise<PlexTokenDiscovery> {
-  const candidates = plexConfigCandidates()
+  const fromFiles = await discoverFromConfigFiles(plexConfigCandidates())
+  if (fromFiles.token || process.platform !== 'win32') {
+    return fromFiles
+  }
+
+  // Windows only, and only once the usual paths have missed — so a working
+  // setup keeps taking exactly the path it took before.
+  return (await discoverPlexTokenFromWindowsRegistry()) ?? fromFiles
+}
+
+/** The file half of discovery: first candidate that yields a token wins. */
+async function discoverFromConfigFiles(
+  candidates: PlexConfigCandidate[],
+): Promise<PlexTokenDiscovery> {
   let lastReason: PlexTokenReason = 'pms-not-installed'
   let lastSource: string | undefined
 

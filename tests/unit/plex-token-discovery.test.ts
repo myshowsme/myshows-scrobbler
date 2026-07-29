@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vite-plus/test'
+import { isSafeRegistryKey } from '../../src/setup/helpers/windows-registry.js'
 import {
+  WINDOWS_PLEX_REGISTRY_KEY,
+  discoverPlexToken,
   extractPlexOnlineToken,
   extractPlexOnlineTokenFromPlist,
   plexConfigCandidates,
@@ -97,6 +100,35 @@ describe('plexConfigCandidates', () => {
       return
     }
     expect(plexConfigCandidates().every((c) => c.format === 'xml')).toBe(true)
+  })
+})
+
+describe('WINDOWS_PLEX_REGISTRY_KEY', () => {
+  it('points at the HKCU hive where a Windows PMS mirrors its preferences', () => {
+    expect(WINDOWS_PLEX_REGISTRY_KEY).toBe('HKCU\\Software\\Plex, Inc.\\Plex Media Server')
+  })
+
+  it('passes the reg.exe key validator despite the comma in "Plex, Inc."', () => {
+    // Regression guard: the validator's charset originally had no comma, so
+    // reading this key threw "Unsafe registry key" instead of returning a token.
+    expect(isSafeRegistryKey(WINDOWS_PLEX_REGISTRY_KEY)).toBe(true)
+  })
+})
+
+describe('discoverPlexToken', () => {
+  it('leaves non-Windows platforms on the file-only path', async () => {
+    if (process.platform === 'win32') {
+      return
+    }
+    // The registry fallback must never fire off Windows: on this machine the
+    // macOS plist resolves, and on CI the miss must still report a reason
+    // rather than blowing up in reg.exe.
+    const result = await discoverPlexToken()
+    if (result.token) {
+      expect(result.source).not.toBe(WINDOWS_PLEX_REGISTRY_KEY)
+    } else {
+      expect(result.reason).toBeDefined()
+    }
   })
 })
 
