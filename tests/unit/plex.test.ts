@@ -409,3 +409,219 @@ describe('PlexAdapter polling diff', () => {
     expect(emitted).toHaveLength(2)
   })
 })
+
+/**
+ * Libraries built on retired metadata agents never send `Guid[]`; the id arrives in the
+ * scalar `guid` / `grandparentGuid` attributes instead.
+ * See docs/superpowers/specs/2026-07-27-plex-legacy-guids-design.md.
+ */
+describe('PlexAdapter legacy agent libraries', () => {
+  const SHOW_GUID = 'com.plexapp.agents.thetvdb://468006?lang=en'
+  const EPISODE_GUID = 'com.plexapp.agents.thetvdb://468006/1/1?lang=en'
+  const MOVIE_GUID = 'com.plexapp.agents.imdb://tt29768334?lang=en'
+
+  const legacyEpisodeSession = {
+    sessionKey: 'k-legacy',
+    ratingKey: '60239',
+    grandparentRatingKey: '60237',
+    type: 'episode',
+    title: 'Episode 1',
+    grandparentTitle: 'Agent Kim Reactivated',
+    parentIndex: 1,
+    index: 1,
+    year: 2026,
+    duration: 4073770,
+    viewOffset: 100000,
+    guid: EPISODE_GUID,
+    grandparentGuid: SHOW_GUID,
+    Player: { state: 'playing' },
+  }
+
+  const legacyMovieSession = {
+    sessionKey: 'k-movie',
+    ratingKey: '59121',
+    type: 'movie',
+    title: 'Train Dreams',
+    year: 2025,
+    duration: 6220291,
+    viewOffset: 100000,
+    Player: { state: 'playing' },
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  async function tick(adapter: PlexAdapter): Promise<void> {
+    await (adapter as unknown as { poll(): Promise<void> }).poll()
+  }
+
+  function startedAdapter(emitted: NormalizedEvent[]): PlexAdapter {
+    const adapter = makeAdapter(emitted)
+    ;(adapter as unknown as { running: boolean }).running = true
+    return adapter
+  }
+
+  it('takes the show id from the scalar GUID and leaves episode ids empty', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([legacyEpisodeSession]),
+        '/library/metadata/60237': () =>
+          metadataResponse([{ guid: SHOW_GUID, title: 'Agent Kim Reactivated' }]),
+        '/library/metadata/60239': () => metadataResponse([{ guid: EPISODE_GUID }]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({
+      type: 'episode',
+      ids: { tvdb: '468006' },
+      tvdbId: '468006',
+      season: 1,
+      episode: 1,
+    })
+    // The episode's own GUID carries the *show* id plus S/E numbers, so it must not leak
+    // into episode ids — that would scrobble the wrong thing.
+    expect(emitted[0]?.episodeIds).toEqual({})
+    expect(emitted[0]?.episodeTvdbId).toBeNull()
+  })
+
+  it('falls back to grandparentGuid when the show metadata fetch fails', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([legacyEpisodeSession]),
+        // No route for /library/metadata — both extra fetches 404.
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({ ids: { tvdb: '468006' } })
+  })
+
+  it('reads the scalar GUID for movies', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([legacyMovieSession]),
+        '/library/metadata/59121': () => metadataResponse([{ guid: MOVIE_GUID }]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({ type: 'movie', ids: { imdb: 'tt29768334' } })
+  })
+
+  it('ignores GUIDs of neighbouring titles in Related/Extras', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([legacyMovieSession]),
+        '/library/metadata/59121': () =>
+          metadataResponse([
+            {
+              guid: MOVIE_GUID,
+              // A real Plex response embeds other movies here, each with a valid legacy GUID.
+              Related: [{ Video: [{ guid: 'com.plexapp.agents.imdb://tt31193180?lang=en' }] }],
+              Extras: [{ Video: [{ guid: 'iva://api.internetvideoarchive.com/2.0/x?lang=en' }] }],
+            },
+          ]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]?.ids).toEqual({ imdb: 'tt29768334' })
+  })
+
+  it('keeps the modern GUID array in front of the scalar one', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([legacyMovieSession]),
+        '/library/metadata/59121': () =>
+          metadataResponse([{ Guid: [{ id: 'imdb://tt0000001' }], guid: MOVIE_GUID }]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]?.ids).toEqual({ imdb: 'tt0000001' })
+  })
+
+  it('sends the id on the session-end scrobble too', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    let sessions: unknown[] = [legacyMovieSession]
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse(sessions),
+        '/library/metadata/59121': () => metadataResponse([{ guid: MOVIE_GUID }]),
+      }),
+    )
+
+    await tick(adapter)
+    sessions = []
+    await tick(adapter)
+
+    const stopped = emitted.find((e) => e.action === 'stopped')
+    expect(stopped).toMatchObject({ ids: { imdb: 'tt29768334' } })
+  })
+
+  it('caches metadata for legacy items instead of refetching on every tick', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    const calls: string[] = []
+    let viewOffset = 100000
+    vi.stubGlobal('fetch', ((url: string) => {
+      calls.push(url)
+      if (url.includes('/status/sessions')) {
+        // The offset must move, otherwise the second tick sees no change and fetches nothing.
+        viewOffset += 50000
+        return Promise.resolve(sessionsResponse([{ ...legacyEpisodeSession, viewOffset }]))
+      }
+      if (url.includes('/library/metadata/60237')) {
+        return Promise.resolve(metadataResponse([{ guid: SHOW_GUID }]))
+      }
+      if (url.includes('/library/metadata/60239')) {
+        return Promise.resolve(metadataResponse([{ guid: EPISODE_GUID }]))
+      }
+      return Promise.resolve(new Response('{}', { status: 404 }))
+    }) as typeof fetch)
+
+    await tick(adapter)
+    await tick(adapter)
+
+    // Legacy items return no `Guid[]`; before the fix that empty result was never cached,
+    // so this fetch repeated on every poll.
+    expect(calls.filter((url) => url.includes('/library/metadata/60239'))).toHaveLength(1)
+    expect(calls.filter((url) => url.includes('/library/metadata/60237'))).toHaveLength(1)
+    expect(emitted).toHaveLength(2)
+  })
+})

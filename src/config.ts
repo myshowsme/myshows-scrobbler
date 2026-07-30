@@ -105,6 +105,7 @@ function rawSourceToConfig(raw: RawSourceConfig): SourceConfig {
     token: raw.token ?? '',
     pollInterval: raw.poll_interval ?? DEFAULT_SOURCE.pollInterval,
     userFilter: normalizeUserFilter(raw.user_filter, `source "${raw.type}"`),
+    ...(raw.diagnostics === true ? { diagnostics: true } : {}),
   }
 }
 
@@ -116,6 +117,8 @@ function configSourceToRaw(src: SourceConfig): RawSourceConfig {
     token: src.token,
     poll_interval: src.pollInterval,
     user_filter: src.userFilter,
+    // Preserved on write so a UI edit does not silently switch diagnostics back off.
+    ...(src.diagnostics === true ? { diagnostics: true } : {}),
   }
 }
 

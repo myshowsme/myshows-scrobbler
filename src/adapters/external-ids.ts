@@ -141,6 +141,80 @@ export function extractPrefixedId(
   return match ? (match.id?.replace(prefix, '') ?? null) : null
 }
 
+/** Prefix used by every retired Plex metadata agent. */
+const PLEX_LEGACY_PREFIX = 'com.plexapp.agents.'
+const HAMA_AGENT = 'hama'
+
+/**
+ * HAMA hides the real provider inside the value: `tvdb2-315500` is TVDB 315500.
+ * The digit marks a season-mapping variant and does not change the id.
+ */
+const HAMA_VALUE = /^([a-z]+)(\d*)-(.+)$/i
+
+function normalizeHamaGuid(value: string): string {
+  const match = HAMA_VALUE.exec(value)
+  if (!match) {
+    // Unknown shape — hand back the `hama` provider, which no branch claims, so the
+    // id is dropped rather than guessed.
+    return `${HAMA_AGENT}://${value}`
+  }
+
+  const [, rawProvider, , id] = match
+  // `tsdb` is a typo inside HAMA itself; it means TMDB.
+  const provider = rawProvider.toLowerCase() === 'tsdb' ? 'tmdb' : rawProvider.toLowerCase()
+
+  // HAMA is the only known source storing IMDb ids without the canonical `tt`.
+  if (provider === 'imdb' && /^\d+$/.test(id)) {
+    return `imdb://tt${id}`
+  }
+
+  return `${provider}://${id}`
+}
+
+/**
+ * Bring a Plex GUID to the canonical `provider://value` form.
+ *
+ * Modern agents already emit that form (`tvdb://315500`) and pass through unchanged.
+ * Retired agents emit `com.plexapp.agents.thetvdb://315500?lang=en`, which `setKnownId`
+ * cannot match because its key normalisation strips the dots.
+ *
+ * Returns null when the GUID carries no external id.
+ */
+export function normalizeGuid(raw: string | null | undefined): string | null {
+  const guid = nonEmptyString(raw)
+  if (!guid) {
+    return null
+  }
+
+  const separator = guid.indexOf('://')
+  if (separator < 0) {
+    return null
+  }
+
+  const provider = guid.slice(0, separator).toLowerCase()
+  const value = guid.slice(separator + 3).split('?')[0] ?? ''
+  if (!value) {
+    return null
+  }
+
+  // Sub-item GUIDs carry the *title* id plus season/episode numbers: legacy
+  // `thetvdb://468006/1/1` is show 468006, S01E01. Scrobbling 468006 as an episode id
+  // would match the wrong thing, so the whole level is refused regardless of caller.
+  if (value.includes('/')) {
+    return null
+  }
+
+  if (provider === `${PLEX_LEGACY_PREFIX}${HAMA_AGENT}`) {
+    return normalizeHamaGuid(value)
+  }
+
+  if (provider.startsWith(PLEX_LEGACY_PREFIX)) {
+    return `${provider.slice(PLEX_LEGACY_PREFIX.length)}://${value}`
+  }
+
+  return `${provider}://${value}`
+}
+
 export function idsFromPrefixedGuids(guids: PrefixedGuid[] | undefined): ExternalIds {
   const ids: ExternalIds = {}
   if (!Array.isArray(guids)) {
@@ -148,7 +222,11 @@ export function idsFromPrefixedGuids(guids: PrefixedGuid[] | undefined): Externa
   }
 
   for (const guid of guids) {
-    const [provider, ...rest] = guid.id?.split('://') ?? []
+    const normalized = normalizeGuid(guid.id)
+    if (!normalized) {
+      continue
+    }
+    const [provider, ...rest] = normalized.split('://')
     if (!provider || rest.length === 0) {
       continue
     }

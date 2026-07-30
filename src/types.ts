@@ -80,6 +80,13 @@ export interface SourceConfig {
    * A session whose viewer the server did not report is dropped whenever a filter is set.
    */
   userFilter: string[]
+  /**
+   * Hidden, config-only debug switch (no UI). Plex only: writes one block per played
+   * title to `plex-diagnostics.log` next to `config.json`, recording the raw GUID fields
+   * the server sent and what they parsed into. Meant for troubleshooting libraries built
+   * on retired metadata agents; off unless explicitly set.
+   */
+  diagnostics?: boolean
 }
 
 // ── Application configuration ──
@@ -191,6 +198,8 @@ export interface RawSourceConfig {
   token: string
   poll_interval: number
   user_filter: string[]
+  /** Hidden Plex-only debug switch; see `SourceConfig.diagnostics`. */
+  diagnostics?: boolean
   // Legacy field, ignored on read, never written
   mode?: string
 }

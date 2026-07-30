@@ -1,7 +1,14 @@
-import type { SourceType, NormalizedEvent, PlaybackState, MediaInfo } from '../types.js'
+import type {
+  SourceType,
+  NormalizedEvent,
+  PlaybackState,
+  MediaInfo,
+  ExternalIds,
+} from '../types.js'
 import { BaseAdapter } from './base.js'
 import { extractDubTeam } from '../utils/dub-team.js'
-import { extractPrefixedId, idsFromPrefixedGuids, legacyIdFields } from './external-ids.js'
+import { idsFromPrefixedGuids, legacyIdFields } from './external-ids.js'
+import { PlexDiagnostics, defaultDiagnosticsPath, type GuidSnapshot } from './plex-diagnostics.js'
 import { hdrFromText, isScrobblableType } from './media-info.js'
 import { languageToIso } from '../utils/audio-track.js'
 import { msToRuntimeMinutes, percentFromPosition } from './time.js'
@@ -59,6 +66,14 @@ interface PlexSession {
   viewOffset: number
   userRating?: number
   Guid?: PlexGuid[]
+  /**
+   * Scalar GUIDs emitted by retired metadata agents, which never send `Guid[]`.
+   * For an episode `guid` is the show id plus season/episode numbers and must not be
+   * used — `grandparentGuid` is the clean show id. See external-ids.normalizeGuid.
+   */
+  guid?: string
+  parentGuid?: string
+  grandparentGuid?: string
   Media?: PlexMedia[]
   User?: { id: string; title: string }
   Player?: { state: string; version?: string; product?: string }
@@ -74,9 +89,15 @@ interface PlexMetadataResponse {
       viewCount?: number
       lastRatedAt?: number
       Guid?: PlexGuid[]
+      guid?: string
+      parentGuid?: string
+      grandparentGuid?: string
     }>
   }
 }
+
+/** Shape shared by sessions and metadata entries, for GUID reading and diagnostics. */
+type GuidBearing = Pick<PlexSession, 'Guid' | 'guid' | 'parentGuid' | 'grandparentGuid'>
 
 interface PlexSessionsResponse {
   MediaContainer?: {
@@ -89,26 +110,66 @@ interface ShowMeta {
   guids: PlexGuid[]
   originalTitle: string | null
   contentRating: string | null
+  raw?: GuidSnapshot
 }
 
 /** Cached episode-level metadata. */
 interface EpisodeMeta {
   guids: PlexGuid[]
+  raw?: GuidSnapshot
 }
 
 /** Cached movie-level metadata. */
 interface MovieMeta {
   guids: PlexGuid[]
+  raw?: GuidSnapshot
 }
 
 // ── Helpers ──
 
-function formatMeta(meta: PlexSession): string {
-  const imdb = extractPrefixedId(meta.Guid, 'imdb://')
-  if (meta.type === 'episode') {
-    return `${meta.grandparentTitle ?? 'Show'} S${meta.parentIndex}E${meta.index} - ${meta.title}${imdb ? ` (IMDB: ${imdb})` : ''}`
+/**
+ * Retired agents put the id in a scalar `guid` instead of `Guid[]`. Wrapping it in the
+ * array shape lets every downstream caller stay unchanged.
+ */
+function scalarGuids(value: string | undefined): PlexGuid[] {
+  const trimmed = value?.trim()
+  return trimmed ? [{ id: trimmed }] : []
+}
+
+/** First candidate that actually carries GUIDs; `Guid[]` therefore wins over scalars. */
+function firstNonEmpty(...candidates: (PlexGuid[] | undefined)[]): PlexGuid[] {
+  return candidates.find((list) => list && list.length > 0) ?? []
+}
+
+/** Untouched GUID fields, kept only so the diagnostics file can show what Plex sent. */
+function guidSnapshot(source: string, meta: GuidBearing | undefined): GuidSnapshot {
+  return {
+    source,
+    Guid: (meta?.Guid ?? []).map((entry) => entry.id),
+    guid: meta?.guid,
+    parentGuid: meta?.parentGuid,
+    grandparentGuid: meta?.grandparentGuid,
   }
-  return `${meta.title} (${meta.year ?? '?'})${imdb ? ` (IMDB: ${imdb})` : ''}`
+}
+
+/** Session-level GUIDs, used before the extra metadata fetches have run. */
+function sessionGuids(meta: PlexSession): PlexGuid[] {
+  return meta.type === 'episode'
+    ? firstNonEmpty(meta.Guid, scalarGuids(meta.grandparentGuid))
+    : firstNonEmpty(meta.Guid, scalarGuids(meta.guid))
+}
+
+function formatIds(ids: ExternalIds): string {
+  const found = Object.entries(ids).find(([, value]) => value !== undefined)
+  return found ? ` (${found[0]}: ${found[1]})` : ''
+}
+
+function formatMeta(meta: PlexSession): string {
+  const ids = formatIds(idsFromPrefixedGuids(sessionGuids(meta)))
+  if (meta.type === 'episode') {
+    return `${meta.grandparentTitle ?? 'Show'} S${meta.parentIndex}E${meta.index} - ${meta.title}${ids}`
+  }
+  return `${meta.title} (${meta.year ?? '?'})${ids}`
 }
 
 function normalizeState(raw: string | undefined): PlaybackState {
@@ -166,10 +227,12 @@ function sessionToEvent(
   extraRating?: number | null,
   partFile?: string | null,
 ): NormalizedEvent {
+  // Empty arrays are now a real outcome (legacy libraries cache `{ guids: [] }`), so the
+  // fallback chain checks length rather than nullishness.
   const guids =
     meta.type === 'episode'
-      ? (showMeta?.guids ?? extraGuids ?? meta.Guid)
-      : (extraGuids ?? meta.Guid)
+      ? firstNonEmpty(showMeta?.guids, extraGuids, sessionGuids(meta))
+      : firstNonEmpty(extraGuids, sessionGuids(meta))
 
   const ids = idsFromPrefixedGuids(guids)
   const episodeIds = idsFromPrefixedGuids(episodeMeta?.guids)
@@ -238,6 +301,49 @@ export class PlexAdapter extends BaseAdapter {
    */
   private readonly baseUrl = normalizeBaseUrl(this.config.url)
 
+  /** Null unless the hidden `diagnostics` flag is set on the source. */
+  private readonly diagnostics = this.config.diagnostics
+    ? new PlexDiagnostics(defaultDiagnosticsPath(), (message) => this.log('warn', message))
+    : null
+
+  /**
+   * One block per title, written only when `diagnostics` is on. Collects the raw GUID
+   * fields from every endpoint that contributed, next to what they parsed into, so a
+   * user with a legacy library can send back a single file instead of raw API dumps.
+   */
+  private recordDiagnostics(
+    session: PlexSession,
+    event: NormalizedEvent,
+    showMeta: ShowMeta | null,
+    episodeMeta: EpisodeMeta | null,
+    extra: GuidSnapshot | undefined,
+    partFile: string | null,
+  ): void {
+    if (!this.diagnostics) {
+      return
+    }
+
+    this.diagnostics.record({
+      key: session.ratingKey,
+      type: session.type,
+      title: session.title,
+      showTitle: session.grandparentTitle ?? null,
+      season: session.parentIndex ?? null,
+      episode: session.index ?? null,
+      year: session.year ?? null,
+      // Basename only — the directory says where someone keeps their files and adds nothing.
+      file: partFile ? (partFile.split(/[\\/]/).pop() ?? null) : null,
+      snapshots: [
+        guidSnapshot('session (/status/sessions)', session),
+        showMeta?.raw,
+        episodeMeta?.raw,
+        extra,
+      ].filter((snapshot): snapshot is GuidSnapshot => Boolean(snapshot)),
+      ids: event.ids,
+      episodeIds: event.episodeIds,
+    })
+  }
+
   async checkConnection(): Promise<boolean> {
     try {
       this.clearConnectionError()
@@ -286,17 +392,18 @@ export class PlexAdapter extends BaseAdapter {
           const movieMeta = s.type === 'movie' ? await this.getMovieMeta(s.ratingKey) : null
           const partFile = s.Media?.[0]?.Part?.[0]?.file ?? null
 
-          await this.emitScrobble(
-            sessionToEvent(
-              s,
-              'progress',
-              showMeta,
-              episodeMeta,
-              movieMeta?.guids,
-              undefined,
-              partFile,
-            ),
+          const event = sessionToEvent(
+            s,
+            'progress',
+            showMeta,
+            episodeMeta,
+            movieMeta?.guids,
+            undefined,
+            partFile,
           )
+          this.logResolvedIds(event)
+          this.recordDiagnostics(s, event, showMeta, episodeMeta, movieMeta?.raw, partFile)
+          await this.emitScrobble(event)
         }
       }
 
@@ -313,17 +420,18 @@ export class PlexAdapter extends BaseAdapter {
           prev.type === 'episode' ? await this.getEpisodeMeta(prev.ratingKey) : null
         const rating = await this.fetchMetadataWithRating(prev.ratingKey)
         const partFile = prev.Media?.[0]?.Part?.[0]?.file ?? null
-        await this.emitScrobble(
-          sessionToEvent(
-            prev,
-            'stopped',
-            showMeta,
-            episodeMeta,
-            rating?.guids,
-            rating?.userRating,
-            partFile,
-          ),
+        const event = sessionToEvent(
+          prev,
+          'stopped',
+          showMeta,
+          episodeMeta,
+          rating?.guids,
+          rating?.userRating,
+          partFile,
         )
+        this.logResolvedIds(event)
+        this.recordDiagnostics(prev, event, showMeta, episodeMeta, rating?.raw, partFile)
+        await this.emitScrobble(event)
 
         // Clean up per-item caches for ended sessions
         this.episodeMetaCache.delete(prev.ratingKey)
@@ -334,6 +442,18 @@ export class PlexAdapter extends BaseAdapter {
     } catch (err) {
       this.log('error', `Poll error: ${(err as Error).message}`)
     }
+  }
+
+  /**
+   * Pairs with the raw-GUID lines logged when metadata is cached, so a debug log shows
+   * both what Plex sent and what it parsed into — enough to diagnose a "nothing matches"
+   * report without asking the user for raw dumps.
+   */
+  private logResolvedIds(event: NormalizedEvent): void {
+    const episode = Object.keys(event.episodeIds).length
+      ? ` episode=${JSON.stringify(event.episodeIds)}`
+      : ''
+    this.log('debug', `Resolved ids: show=${JSON.stringify(event.ids)}${episode}`)
   }
 
   /** Get show-level metadata (GUIDs + originalTitle), cached per grandparentRatingKey. */
@@ -369,9 +489,11 @@ export class PlexAdapter extends BaseAdapter {
       }
 
       const showMeta: ShowMeta = {
-        guids: meta.Guid ?? [],
+        // At show level the legacy scalar is already a clean id (`thetvdb://468006`).
+        guids: firstNonEmpty(meta.Guid, scalarGuids(meta.guid)),
         originalTitle: meta.originalTitle ?? null,
         contentRating: meta.contentRating ?? null,
+        raw: guidSnapshot(`/library/metadata/${gpKey} (show)`, meta),
       }
 
       this.showMetaCache.set(gpKey, showMeta)
@@ -410,11 +532,18 @@ export class PlexAdapter extends BaseAdapter {
 
       const data = (await response.json()) as PlexMetadataResponse
       const meta = data.MediaContainer?.Metadata?.[0]
-      if (!meta?.Guid?.length) {
-        return null
+
+      // Episode ids come from `Guid[]` only. The scalar `guid` of a legacy episode is the
+      // *show* id plus season/episode numbers, so feeding it here would scrobble the wrong
+      // thing — see docs/plex-legacy-guids-research.md §5.1. The asymmetry with
+      // getShowMeta/getMovieMeta is deliberate.
+      const episodeMeta: EpisodeMeta = {
+        guids: meta?.Guid ?? [],
+        raw: guidSnapshot(`/library/metadata/${ratingKey} (episode)`, meta),
       }
 
-      const episodeMeta: EpisodeMeta = { guids: meta.Guid }
+      // Cached even when empty: legacy libraries never return `Guid[]`, and bailing out
+      // before this line re-fetched the same metadata on every poll tick.
       this.episodeMetaCache.set(ratingKey, episodeMeta)
       this.log(
         'debug',
@@ -454,11 +583,15 @@ export class PlexAdapter extends BaseAdapter {
 
       const data = (await response.json()) as PlexMetadataResponse
       const meta = data.MediaContainer?.Metadata?.[0]
-      if (!meta?.Guid?.length) {
-        return null
+
+      // Only the top-level item is read. `Related` and `Extras` in the same response carry
+      // GUIDs of *other* titles — see docs/plex-legacy-guids-research.md §11.5.
+      const movieMeta: MovieMeta = {
+        guids: firstNonEmpty(meta?.Guid, scalarGuids(meta?.guid)),
+        raw: guidSnapshot(`/library/metadata/${ratingKey} (movie)`, meta),
       }
 
-      const movieMeta: MovieMeta = { guids: meta.Guid }
+      // Cached even when empty, for the same reason as getEpisodeMeta.
       this.movieMetaCache.set(ratingKey, movieMeta)
       this.log(
         'debug',
@@ -514,6 +647,7 @@ export class PlexAdapter extends BaseAdapter {
   private async fetchMetadataWithRating(ratingKey: string): Promise<{
     userRating: number | null
     guids?: PlexGuid[]
+    raw?: GuidSnapshot
   } | null> {
     try {
       const url = `${this.baseUrl}/library/metadata/${ratingKey}?includeGuids=1`
@@ -537,7 +671,10 @@ export class PlexAdapter extends BaseAdapter {
 
       return {
         userRating: metadata.userRating ?? null,
-        guids: metadata.Guid,
+        // This is the session-end path, which produces the scrobble that actually counts —
+        // it needs the legacy scalar just as much as the in-progress paths do.
+        guids: firstNonEmpty(metadata.Guid, scalarGuids(metadata.guid)),
+        raw: guidSnapshot(`/library/metadata/${ratingKey} (session end)`, metadata),
       }
     } catch (err) {
       this.log('error', `Metadata fetch error: ${(err as Error).message}`)
