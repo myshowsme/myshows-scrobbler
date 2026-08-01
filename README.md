@@ -96,11 +96,28 @@ https://myshowsme.github.io/myshows-scrobbler-lampa/myshows.js
 
 ### Docker
 
+Готовый образ — в GHCR, собирать ничего не нужно. Он multi-arch (x86-64 и ARM64), так что на NAS, домашнем сервере и Raspberry Pi ставится одинаково:
+
+```bash
+mkdir -p ./data && sudo chown -R 1001:1001 ./data
+
+docker run -d --name myshows-scrobbler --restart unless-stopped \
+  -p 3000:3000 \
+  -v "$PWD/data:/data" \
+  ghcr.io/myshowsme/myshows-scrobbler:latest
+```
+
+Веб-интерфейс — на `http://localhost:3000` (с NAS — по его адресу в сети), конфиг — в `./data/config.json`. (Docker-образ задаёт порт `3000`; собственный дефолт приложения — `5172`.)
+
+`chown` в первой строке обязателен на Linux: контейнер работает под uid 1001 и в каталог, принадлежащий root, конфиг не запишет. Docker Desktop на macOS и Windows это скрывает.
+
+Или через compose — [docker-compose.yml](docker-compose.yml) уже настроен на этот образ:
+
 ```bash
 docker compose up -d
 ```
 
-Веб-интерфейс — на `http://localhost:3000`, конфиг — в томе `./data/config.json`. (Docker-образ задаёт порт `3000`; собственный дефолт приложения — `5172`.)
+Чтобы собрать образ из исходников (например, при разработке), раскомментируйте `build: .` в [docker-compose.yml](docker-compose.yml).
 
 ### Node.js
 

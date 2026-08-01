@@ -96,11 +96,28 @@ The same server runs headless, on a NAS, a home server, or just in a terminal. L
 
 ### Docker
 
+A prebuilt image lives in GHCR — nothing to compile. It's multi-arch (x86-64 and ARM64), so a NAS, a home server and a Raspberry Pi all install it the same way:
+
+```bash
+mkdir -p ./data && sudo chown -R 1001:1001 ./data
+
+docker run -d --name myshows-scrobbler --restart unless-stopped \
+  -p 3000:3000 \
+  -v "$PWD/data:/data" \
+  ghcr.io/myshowsme/myshows-scrobbler:latest
+```
+
+Web UI on `http://localhost:3000` (on a NAS, at its address on your network), config in `./data/config.json`. (The Docker image sets the port to `3000`; the app's own default is `5172`.)
+
+The `chown` is required on Linux: the container runs as uid 1001 and can't write its config into a root-owned directory. Docker Desktop on macOS and Windows hides this.
+
+Or via compose — [docker-compose.yml](docker-compose.yml) already points at the image:
+
 ```bash
 docker compose up -d
 ```
 
-Web UI on `http://localhost:3000`, config in the `./data/config.json` volume. (The Docker image sets the port to `3000`; the app's own default is `5172`.)
+To build from source instead (when working on the code), uncomment `build: .` in [docker-compose.yml](docker-compose.yml).
 
 ### Node.js
 

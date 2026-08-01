@@ -15,10 +15,17 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache libstdc++ git cmake make g++ python3 \
-  && npm install -g vite-plus@0.2.1
+RUN apk add --no-cache libstdc++ git cmake make g++ python3
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Vite+ drives the build, but it has to exist *before* node_modules do — it's
+# what performs the install — so it can't be resolved from devDependencies here
+# and has to be installed globally. The version is read out of package.json
+# rather than pinned: a hardcoded one silently rotted to 0.2.1 while the repo
+# moved on to 0.2.5, and nothing caught it because nobody rebuilt the image.
+RUN npm install -g vite-plus@"$(node -p "require('./package.json').devDependencies['vite-plus']")"
+
 RUN vp install --frozen-lockfile
 
 # Source files for the build. .dockerignore filters out tests, fixtures,
@@ -35,10 +42,14 @@ FROM node:24-alpine AS proddeps
 
 WORKDIR /app
 
-RUN apk add --no-cache libstdc++ git cmake make g++ python3 \
-  && npm install -g vite-plus@0.2.1
+RUN apk add --no-cache libstdc++ git cmake make g++ python3
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Same reasoning as the builder stage: version comes from package.json so the
+# two stages can't drift apart, or away from the project.
+RUN npm install -g vite-plus@"$(node -p "require('./package.json').devDependencies['vite-plus']")"
+
 RUN vp install --frozen-lockfile --prod
 
 # ── Runtime stage ───────────────────────────────────────────────────────────

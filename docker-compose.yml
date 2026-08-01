@@ -1,6 +1,14 @@
 services:
   myshows-scrobbler:
-    build: .
+    # Prebuilt multi-arch image (x86-64 + ARM64), published by
+    # .github/workflows/docker.yml when a release is published.
+    image: ghcr.io/myshowsme/myshows-scrobbler:latest
+
+    # Uncomment to build from the working tree instead — with both keys present
+    # compose builds and tags the result as `image`, so `docker compose up -d`
+    # runs your local code.
+    # build: .
+
     container_name: myshows-scrobbler
     restart: unless-stopped
     ports:
@@ -26,6 +34,15 @@ services:
       # Runtime data — config.json, snapshots/, audit log. Keep this
       # outside the container so config survives image rebuilds and is
       # editable from the host.
+      #
+      # The container runs as uid 1001 (USER nodejs in the Dockerfile), so on a
+      # Linux host this directory must be owned by it or the app can't write
+      # config.json:
+      #
+      #   mkdir -p ./data && chown -R 1001:1001 ./data
+      #
+      # Docker Desktop on macOS/Windows papers over this, which is exactly why
+      # it tends to be discovered on a NAS instead.
       - ./data:/data
 
       # OPTIONAL: enable Plex token auto-discovery when both Plex Media
