@@ -39,7 +39,7 @@ services:
       # Linux host this directory must be owned by it or the app can't write
       # config.json:
       #
-      #   mkdir -p ./data && chown -R 1001:1001 ./data
+      #   mkdir -p ./data && sudo chown -R 1001:1001 ./data
       #
       # Docker Desktop on macOS/Windows papers over this, which is exactly why
       # it tends to be discovered on a NAS instead.
