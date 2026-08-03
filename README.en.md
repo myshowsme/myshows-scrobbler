@@ -92,15 +92,57 @@ From there it's the same [MyShows token](https://en.myshows.me/profile/watch-his
 
 ## Without the desktop app
 
-The same server runs headless, on a NAS, a home server, or just in a terminal. Local players won't work from Docker; media servers work fine.
+The scrobbler doesn't have to live on your computer. If you have a NAS or a home server, put it there — scrobbles keep reaching MyShows even while your computer is off. That's what you want if you watch from a TV or a phone.
+
+One limitation: from inside a container the apps running on your computer aren't visible, so "Local player", VLC and mpv won't work this way. Plex, Jellyfin, Emby and Kodi will — the scrobbler reaches those over the network.
 
 ### Docker
+
+Nothing to compile, a prebuilt image is already published. It runs on ordinary Intel/AMD processors as well as on ARM ones — which is what most NAS boxes and the Raspberry Pi use.
+
+**1. Create a folder for the settings.** This is where the scrobbler keeps its config, so updating the image doesn't wipe it:
+
+```bash
+mkdir -p /volume1/docker/myshows-scrobbler/data
+sudo chown -R 1001:1001 /volume1/docker/myshows-scrobbler/data
+```
+
+Substitute your own path — on a NAS the shares usually sit under `/volume1`, `/Volume1` or `/share`; `ls /` will show you.
+
+The second command hands the folder to the user the container runs as. Without it the scrobbler can't save its settings and forgets your token on every restart. On Windows and macOS you can skip this step.
+
+**2. Start the container:**
+
+```bash
+docker run -d \
+  --name myshows-scrobbler \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -v /volume1/docker/myshows-scrobbler/data:/data \
+  ghcr.io/myshowsme/myshows-scrobbler:latest
+```
+
+`--restart unless-stopped` means the scrobbler comes back up on its own after the NAS reboots.
+
+**3. Open the web UI** at your server's address on port 3000 — `http://192.168.1.50:3000`, for instance. From there it's the same as the desktop app: paste your [MyShows token](https://en.myshows.me/profile/watch-history/) and enable a source.
+
+One subtlety when connecting a media server running on that same machine: give its network address (`http://192.168.1.50:8096`), not `localhost`. To the container, `localhost` means itself — not your Jellyfin.
+
+To check that it came up, run `docker logs myshows-scrobbler` and look for a `Server listening` line.
+
+#### Using docker compose
+
+The repo ships a ready [docker-compose.yml](docker-compose.yml):
 
 ```bash
 docker compose up -d
 ```
 
-Web UI on `http://localhost:3000`, config in the `./data/config.json` volume. (The Docker image sets the port to `3000`; the app's own default is `5172`.)
+The `data` folder needs the same ownership as above.
+
+#### Building the image yourself
+
+Only needed if you're working on the code: uncomment `build: .` in [docker-compose.yml](docker-compose.yml) and `docker compose up -d` will build from your local sources.
 
 ### Node.js
 

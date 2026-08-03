@@ -1,0 +1,246 @@
+name: Docker
+
+# Builds the container image for both architectures and publishes it to GHCR, so
+# NAS and homelab users can `docker run` a prebuilt image instead of cloning the
+# repo and building on the target machine (which needs SSH, a toolchain and ~2 GB
+# of free RAM — out of reach from a NAS's graphical Docker manager).
+#
+# Publishing is tied to `release: published`, NOT to the version tag. Pushing a
+# tag only creates a DRAFT release (see release.yml); the image must not reach
+# the registry before the maintainer has reviewed that draft and hit Publish.
+# Once a tag is in GHCR it can't be recalled, only superseded.
+#
+# Every other trigger builds both architectures WITHOUT pushing — a smoke test
+# that the Dockerfile still works. That is the only pre-merge signal available:
+# this workflow can't be replayed locally, since `act` supports neither the arm64
+# runners nor the release event.
+
+on:
+  # Publish steps additionally require the tag to start with "v" (the compound
+  # `if:`s below). release.yml only drafts releases for v*.*.* tags, but a
+  # hand-created release with some other tag would otherwise push per-arch
+  # digests nothing references — and `merge` would either fail on an empty tag
+  # list (non-semver prerelease) or move `latest` with no version tag beside
+  # it. Publishing a non-v release is a no-op build.
+  release:
+    types: [published]
+  # Keep these three path lists in sync. GitHub Actions doesn't support YAML
+  # anchors, so they have to be repeated.
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-entrypoint.sh'
+      - 'src/**'
+      - 'ui/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/docker.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-entrypoint.sh'
+      - 'src/**'
+      - 'ui/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/docker.yml'
+  # Build-only, same as a PR. Deliberately does NOT publish: outside a release
+  # there's no semantic version to tag with, and inventing one (`manual-<sha>`)
+  # would just litter the registry. To retry a failed publish, use "Re-run failed
+  # jobs" on the original run — it replays with the release event intact.
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  # Never cancel a publish half-way: that could leave per-architecture images in
+  # the registry with no manifest list pointing at them.
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+jobs:
+  # One job per architecture, each on a runner of that architecture. Building
+  # arm64 under QEMU on an amd64 runner also works, but slows `pnpm install` and
+  # the Vite build by 5-10x and risks the job timeout. `ubuntu-24.04-arm` is free
+  # for public repositories.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Labels only. Tags are applied by the `merge` job, once both
+      # per-architecture images exist and one manifest can point at them.
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # "linux/amd64" contains a slash, which is legal in neither a cache scope
+      # nor an artifact name.
+      - name: Platform slug
+        id: platform
+        run: echo "slug=${PLATFORM//\//-}" >> "$GITHUB_OUTPUT"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - name: Build (smoke test)
+        if: github.event_name != 'release'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: false
+          labels: ${{ steps.meta.outputs.labels }}
+          # Separate scope per platform, otherwise the two jobs evict each
+          # other's layers from a shared cache.
+          cache-from: type=gha,scope=${{ steps.platform.outputs.slug }}
+          # ignore-error is load-bearing on pull requests from forks: those get a
+          # read-only GITHUB_TOKEN, so the cache export 403s. The backend's
+          # default is to treat that as fatal, which would fail the smoke build
+          # for a reason that has nothing to do with the change under review.
+          cache-to: type=gha,mode=max,ignore-error=true,scope=${{ steps.platform.outputs.slug }}
+
+      - name: Build and push by digest
+        id: push
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # push-by-digest uploads the image untagged. Tagging here would race
+          # the other architecture for the same tag, with the loser's image
+          # orphaned; `merge` assembles one tagged manifest list instead.
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ steps.platform.outputs.slug }}
+          # Same ignore-error as the smoke build. A release runs with a writable
+          # token so the export should succeed — but a cache miss is never worth
+          # failing a publish over.
+          cache-to: type=gha,mode=max,ignore-error=true,scope=${{ steps.platform.outputs.slug }}
+
+      # The digest is the whole payload — an empty file whose *name* is the
+      # digest is all `merge` needs.
+      - name: Export digest
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+
+      - name: Upload digest
+        if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+        uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ steps.platform.outputs.slug }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Ties the two per-architecture images together under the release's tags. This
+  # is the job that makes `ghcr.io/<repo>:latest` exist as a multi-arch image.
+  # (The package itself already exists by this point — `build`'s push-by-digest
+  # creates it — so permission problems surface there first.)
+  #
+  # One-time step after the FIRST release: GHCR creates the package PRIVATE,
+  # even for a public repo. Flip it to public in the package's settings
+  # (Danger Zone → Change visibility), or every `docker run` from the README
+  # fails with "denied". Later releases keep whatever visibility is set.
+  merge:
+    if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `{{major}}` alone is deliberately absent: on a 0.x version it resolves to
+      # "0", which tells a user nothing about compatibility.
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.event.release.prerelease == false }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${REGISTRY}/${IMAGE_NAME}@sha256:%s " *)
+
+      # A manifest list missing an architecture still pushes and still passes a
+      # plain `inspect` — the failure only shows up as "no matching manifest"
+      # on a user's machine. Assert both platforms are actually in there.
+      - name: Verify manifest list
+        run: |
+          manifest=$(docker buildx imagetools inspect --raw "$IMAGE")
+          for platform in linux/amd64 linux/arm64; do
+            if ! jq -e --arg os "${platform%/*}" --arg arch "${platform#*/}" \
+              '[.manifests[].platform] | any(.os == $os and .architecture == $arch)' \
+              >/dev/null <<< "$manifest"; then
+              echo "::error::$platform is missing from the manifest list"
+              exit 1
+            fi
+          done
+          docker buildx imagetools inspect "$IMAGE"
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
