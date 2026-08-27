@@ -625,3 +625,207 @@ describe('PlexAdapter legacy agent libraries', () => {
     expect(emitted).toHaveLength(2)
   })
 })
+
+/**
+ * Cases reported in https://github.com/myshowsme/myshows-scrobbler/issues/24 by a user
+ * running the diagnostics build against a real HAMA-agent library (issue comment,
+ * 2026-08-27). All of them were already handled correctly by the code above — these
+ * tests pin that down so a future change can't silently regress it.
+ */
+describe('PlexAdapter HAMA agent libraries', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  async function tick(adapter: PlexAdapter): Promise<void> {
+    await (adapter as unknown as { poll(): Promise<void> }).poll()
+  }
+
+  function startedAdapter(emitted: NormalizedEvent[]): PlexAdapter {
+    const adapter = makeAdapter(emitted)
+    ;(adapter as unknown as { running: boolean }).running = true
+    return adapter
+  }
+
+  it('resolves a HamaTV episode configured in tvdb mode (Goodbye, Lara S1E1)', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    const session = {
+      sessionKey: 'k-hama-tvdb',
+      ratingKey: '60527',
+      grandparentRatingKey: '60522',
+      type: 'episode',
+      title: 'Mermaid Princess Lara',
+      grandparentTitle: 'Goodbye, Lara',
+      parentIndex: 1,
+      index: 1,
+      duration: 1400000,
+      viewOffset: 100000,
+      guid: 'com.plexapp.agents.hama://tvdb-450228/1/1?lang=en',
+      parentGuid: 'com.plexapp.agents.hama://tvdb-450228/1?lang=en',
+      grandparentGuid: 'com.plexapp.agents.hama://tvdb-450228?lang=en',
+      Player: { state: 'playing' },
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([session]),
+        '/library/metadata/60522': () =>
+          metadataResponse([{ guid: 'com.plexapp.agents.hama://tvdb-450228?lang=en' }]),
+        '/library/metadata/60527': () => metadataResponse([{}]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({ ids: { tvdb: '450228' }, tvdbId: '450228' })
+  })
+
+  it('resolves the same HamaTV show configured in anidb mode instead', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    const session = {
+      sessionKey: 'k-hama-anidb',
+      ratingKey: '60524',
+      grandparentRatingKey: '60522',
+      type: 'episode',
+      title: 'Running Through Shiga',
+      grandparentTitle: 'Sayonara Lara',
+      parentIndex: 1,
+      index: 2,
+      duration: 1400000,
+      viewOffset: 100000,
+      guid: 'com.plexapp.agents.hama://anidb-18643/1/2?lang=en',
+      parentGuid: 'com.plexapp.agents.hama://anidb-18643/1?lang=en',
+      grandparentGuid: 'com.plexapp.agents.hama://anidb-18643?lang=en',
+      Player: { state: 'playing' },
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([session]),
+        '/library/metadata/60522': () =>
+          metadataResponse([{ guid: 'com.plexapp.agents.hama://anidb-18643?lang=en' }]),
+        '/library/metadata/60524': () => metadataResponse([{}]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({ ids: { anidb: 18643 } })
+  })
+
+  it('falls back to grandparentGuid when the episode-level guid is a meaningless local:// id (multi-season HAMA)', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    // Real-world shape: HAMA's scanner assigns `local://` guids per-episode once a show
+    // has multiple seasons; the actual provider id only survives on grandparentGuid.
+    const session = {
+      sessionKey: 'k-hama-local',
+      ratingKey: '60293',
+      grandparentRatingKey: '60291',
+      type: 'episode',
+      title: '2026-07-04',
+      grandparentTitle: 'Mushoku Tensei: Jobless Reincarnation',
+      parentIndex: 3,
+      index: 1,
+      duration: 1400000,
+      viewOffset: 100000,
+      guid: 'local://60293',
+      parentGuid: 'local://60292',
+      grandparentGuid: 'com.plexapp.agents.hama://tvdb-371310?lang=en',
+      Player: { state: 'playing' },
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([session]),
+        '/library/metadata/60291': () =>
+          metadataResponse([{ guid: 'com.plexapp.agents.hama://tvdb-371310?lang=en' }]),
+        '/library/metadata/60293': () => metadataResponse([{}]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({ ids: { tvdb: '371310' }, tvdbId: '371310' })
+  })
+
+  it('resolves a HamaMovies title in anidb mode', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    const session = {
+      sessionKey: 'k-hama-movie',
+      ratingKey: '54357',
+      type: 'movie',
+      title: 'Gekijouban Pocket Monsters: Kimi ni Kimeta!',
+      year: 2017,
+      duration: 1400000,
+      viewOffset: 100000,
+      Player: { state: 'playing' },
+      // /status/sessions never returns Guid[] for legacy movies either.
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([session]),
+        '/library/metadata/54357': () =>
+          metadataResponse([{ guid: 'com.plexapp.agents.hama://anidb-12646?lang=en' }]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({ type: 'movie', ids: { anidb: 12646 } })
+  })
+
+  it('resolves an anime movie filed under HamaTV inside a TV library (local:// episode wrapping a movie)', async () => {
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    // HAMA's popular "movie as a single-episode show" layout for TV libraries: the
+    // episode's own guid is another meaningless local:// id, same fallback as above.
+    const session = {
+      sessionKey: 'k-hama-movie-in-tv',
+      ratingKey: '60917',
+      grandparentRatingKey: '60915',
+      type: 'episode',
+      title: 'Episode 1',
+      grandparentTitle: 'Pokemon the Movie: I Choose You!',
+      parentIndex: 1,
+      index: 1,
+      duration: 1400000,
+      viewOffset: 100000,
+      guid: 'local://60917',
+      parentGuid: 'local://60916',
+      grandparentGuid: 'com.plexapp.agents.hama://anidb-12646?lang=en',
+      Player: { state: 'playing' },
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      routedFetch({
+        '/status/sessions': () => sessionsResponse([session]),
+        '/library/metadata/60915': () =>
+          metadataResponse([{ guid: 'com.plexapp.agents.hama://anidb-12646?lang=en' }]),
+        '/library/metadata/60917': () => metadataResponse([{}]),
+      }),
+    )
+
+    await tick(adapter)
+
+    expect(emitted[0]).toMatchObject({ ids: { anidb: 12646 } })
+  })
+})

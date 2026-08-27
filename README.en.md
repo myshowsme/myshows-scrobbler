@@ -71,6 +71,7 @@ The app lives in the tray and keeps scrobbling with the window closed. Updates c
 - Tracks your watch progress and saves it for you automatically.
 - Shows and movies are recognized and matched automatically on the MyShows side.
 - Rewatches are recorded too.
+- Older Plex libraries built on legacy agents (`com.plexapp.agents.*`), including the HAMA anime scanner, are supported too.
 
 ### Local player limitations
 
