@@ -413,7 +413,6 @@ describe('PlexAdapter polling diff', () => {
 /**
  * Libraries built on retired metadata agents never send `Guid[]`; the id arrives in the
  * scalar `guid` / `grandparentGuid` attributes instead.
- * See docs/superpowers/specs/2026-07-27-plex-legacy-guids-design.md.
  */
 describe('PlexAdapter legacy agent libraries', () => {
   const SHOW_GUID = 'com.plexapp.agents.thetvdb://468006?lang=en'
@@ -591,6 +590,65 @@ describe('PlexAdapter legacy agent libraries', () => {
 
     const stopped = emitted.find((e) => e.action === 'stopped')
     expect(stopped).toMatchObject({ ids: { imdb: 'tt29768334' } })
+  })
+
+  it('keeps the show id on the session-end scrobble when show metadata is unavailable', async () => {
+    // Show metadata fails on both ticks, but the episode's own metadata succeeds. The
+    // episode scalar carries the show id plus S/E numbers (or a `local://` id under HAMA),
+    // so it must not shadow `grandparentGuid` on the stop path.
+    for (const episodeGuid of [EPISODE_GUID, 'local://60239']) {
+      const emitted: NormalizedEvent[] = []
+      const adapter = startedAdapter(emitted)
+
+      let sessions: unknown[] = [{ ...legacyEpisodeSession, guid: episodeGuid }]
+      vi.stubGlobal(
+        'fetch',
+        routedFetch({
+          '/status/sessions': () => sessionsResponse(sessions),
+          '/library/metadata/60239': () => metadataResponse([{ guid: episodeGuid }]),
+          // No route for /library/metadata/60237 — show metadata 404s.
+        }),
+      )
+
+      await tick(adapter)
+      sessions = []
+      await tick(adapter)
+
+      const stopped = emitted.find((e) => e.action === 'stopped')
+      expect(stopped).toMatchObject({ ids: { tvdb: '468006' }, tvdbId: '468006' })
+      expect(stopped?.episodeIds).toEqual({})
+    }
+  })
+
+  it('retries instead of caching when the metadata container is empty', async () => {
+    // A 200 with no `Metadata` is Plex mid-scan/refresh, not a legacy library. Pinning
+    // `{ guids: [] }` for the session would strip ids from every later scrobble.
+    const emitted: NormalizedEvent[] = []
+    const adapter = startedAdapter(emitted)
+
+    let movieFetches = 0
+    let viewOffset = 100000
+    vi.stubGlobal('fetch', ((url: string) => {
+      if (url.includes('/status/sessions')) {
+        viewOffset += 50000
+        return Promise.resolve(sessionsResponse([{ ...legacyMovieSession, viewOffset }]))
+      }
+      if (url.includes('/library/metadata/59121')) {
+        movieFetches += 1
+        return Promise.resolve(
+          movieFetches === 1 ? metadataResponse([]) : metadataResponse([{ guid: MOVIE_GUID }]),
+        )
+      }
+      return Promise.resolve(new Response('{}', { status: 404 }))
+    }) as typeof fetch)
+
+    await tick(adapter)
+    await tick(adapter)
+    await tick(adapter)
+
+    expect(emitted.map((e) => e.ids)).toEqual([{}, { imdb: 'tt29768334' }, { imdb: 'tt29768334' }])
+    // First response was empty and not cached; second was cached.
+    expect(movieFetches).toBe(2)
   })
 
   it('caches metadata for legacy items instead of refetching on every tick', async () => {

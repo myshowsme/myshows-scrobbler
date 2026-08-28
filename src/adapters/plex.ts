@@ -356,7 +356,7 @@ export class PlexAdapter extends BaseAdapter {
         const showMeta = prev.type === 'episode' ? await this.getShowMeta(prev) : null
         const episodeMeta =
           prev.type === 'episode' ? await this.getEpisodeMeta(prev.ratingKey) : null
-        const rating = await this.fetchMetadataWithRating(prev.ratingKey)
+        const rating = await this.fetchMetadataWithRating(prev.ratingKey, prev.type)
         const partFile = prev.Media?.[0]?.Part?.[0]?.file ?? null
         const event = sessionToEvent(
           prev,
@@ -468,13 +468,17 @@ export class PlexAdapter extends BaseAdapter {
 
       const data = (await response.json()) as PlexMetadataResponse
       const meta = data.MediaContainer?.Metadata?.[0]
+      if (!meta) {
+        // An empty container is transient (Plex mid-scan/refresh), not a legacy library —
+        // leave it uncached so the next tick retries.
+        return null
+      }
 
       // Episode ids come from `Guid[]` only. The scalar `guid` of a legacy episode is the
       // *show* id plus season/episode numbers, so feeding it here would scrobble the wrong
-      // thing — see docs/plex-legacy-guids-research.md §5.1. The asymmetry with
-      // getShowMeta/getMovieMeta is deliberate.
+      // thing. The asymmetry with getShowMeta/getMovieMeta is deliberate.
       const episodeMeta: EpisodeMeta = {
-        guids: meta?.Guid ?? [],
+        guids: meta.Guid ?? [],
       }
 
       // Cached even when empty: legacy libraries never return `Guid[]`, and bailing out
@@ -518,11 +522,15 @@ export class PlexAdapter extends BaseAdapter {
 
       const data = (await response.json()) as PlexMetadataResponse
       const meta = data.MediaContainer?.Metadata?.[0]
+      if (!meta) {
+        // Transient empty container — see getEpisodeMeta.
+        return null
+      }
 
       // Only the top-level item is read. `Related` and `Extras` in the same response carry
-      // GUIDs of *other* titles — see docs/plex-legacy-guids-research.md §11.5.
+      // GUIDs of *other* titles and must never be consulted.
       const movieMeta: MovieMeta = {
-        guids: firstNonEmpty(meta?.Guid, scalarGuids(meta?.guid)),
+        guids: firstNonEmpty(meta.Guid, scalarGuids(meta.guid)),
       }
 
       // Cached even when empty, for the same reason as getEpisodeMeta.
@@ -578,7 +586,10 @@ export class PlexAdapter extends BaseAdapter {
     }))
   }
 
-  private async fetchMetadataWithRating(ratingKey: string): Promise<{
+  private async fetchMetadataWithRating(
+    ratingKey: string,
+    type: PlexSession['type'],
+  ): Promise<{
     userRating: number | null
     guids?: PlexGuid[]
   } | null> {
@@ -605,8 +616,15 @@ export class PlexAdapter extends BaseAdapter {
       return {
         userRating: metadata.userRating ?? null,
         // This is the session-end path, which produces the scrobble that actually counts —
-        // it needs the legacy scalar just as much as the in-progress paths do.
-        guids: firstNonEmpty(metadata.Guid, scalarGuids(metadata.guid)),
+        // it needs the legacy scalar just as much as the in-progress paths do. But only for
+        // movies: an episode's scalar `guid` is the show id plus season/episode numbers (or a
+        // meaningless `local://` id under HAMA). Wrapping it here would make a non-empty
+        // array that wins the fallback chain in sessionToEvent over `grandparentGuid`, and
+        // the stop scrobble would lose the show id whenever show metadata is unavailable.
+        guids:
+          type === 'episode'
+            ? (metadata.Guid ?? [])
+            : firstNonEmpty(metadata.Guid, scalarGuids(metadata.guid)),
       }
     } catch (err) {
       this.log('error', `Metadata fetch error: ${(err as Error).message}`)
