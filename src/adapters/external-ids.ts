@@ -130,17 +130,6 @@ export function legacyIdFields(ids: ExternalIds): {
   }
 }
 
-export function extractPrefixedId(
-  guids: PrefixedGuid[] | undefined,
-  prefix: string,
-): string | null {
-  if (!Array.isArray(guids)) {
-    return null
-  }
-  const match = guids.find((guid) => guid.id?.startsWith(prefix))
-  return match ? (match.id?.replace(prefix, '') ?? null) : null
-}
-
 /** Prefix used by every retired Plex metadata agent. */
 const PLEX_LEGACY_PREFIX = 'com.plexapp.agents.'
 const HAMA_AGENT = 'hama'
