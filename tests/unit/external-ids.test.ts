@@ -4,6 +4,7 @@ import {
   idsFromPrefixedGuids,
   idsFromProviderIds,
   legacyIdFields,
+  normalizeGuid,
 } from '../../src/adapters/external-ids.js'
 import { toScrobbleRequest } from '../../src/scrobblers/converter.js'
 import type { NormalizedEvent } from '../../src/types.js'
@@ -78,6 +79,85 @@ describe('external id extraction', () => {
       mal: 21,
       anidb: 69,
     })
+  })
+})
+
+describe('legacy Plex agent GUIDs', () => {
+  it('strips the agent prefix and leaves alias resolution to setKnownId', () => {
+    // `themoviedb`/`thetvdb` are already aliases in the provider switch, so normalizeGuid
+    // only has to remove the prefix that stopped them from matching.
+    expect(normalizeGuid('com.plexapp.agents.imdb://tt29768334?lang=en')).toBe('imdb://tt29768334')
+    expect(normalizeGuid('com.plexapp.agents.themoviedb://1241983?lang=en')).toBe(
+      'themoviedb://1241983',
+    )
+    expect(normalizeGuid('com.plexapp.agents.thetvdb://468006?lang=en')).toBe('thetvdb://468006')
+
+    // …and end to end those land on the canonical fields.
+    expect(
+      idsFromPrefixedGuids([{ id: 'com.plexapp.agents.themoviedb://1241983?lang=en' }]),
+    ).toEqual({ tmdb: '1241983' })
+  })
+
+  it('leaves modern GUIDs untouched', () => {
+    for (const guid of ['tvdb://456', 'imdb://tt0959621', 'tmdb://62085', 'anidb://17709']) {
+      expect(normalizeGuid(guid)).toBe(guid)
+    }
+  })
+
+  it('refuses season/episode GUIDs so a show id can never be sent as an episode id', () => {
+    // `thetvdb://468006/1/1` is show 468006 S01E01 — the number is the *show*, not the episode.
+    expect(normalizeGuid('com.plexapp.agents.thetvdb://468006/1?lang=en')).toBeNull()
+    expect(normalizeGuid('com.plexapp.agents.thetvdb://468006/1/1?lang=en')).toBeNull()
+    expect(
+      idsFromPrefixedGuids([{ id: 'com.plexapp.agents.thetvdb://468006/1/1?lang=en' }]),
+    ).toEqual({})
+  })
+
+  it('unwraps HAMA sub-providers and drops the season-mapping digit', () => {
+    expect(normalizeGuid('com.plexapp.agents.hama://tvdb-371310?lang=en')).toBe('tvdb://371310')
+    for (const variant of ['tvdb2', 'tvdb3', 'tvdb4', 'tvdb5']) {
+      expect(normalizeGuid(`com.plexapp.agents.hama://${variant}-315500`)).toBe('tvdb://315500')
+    }
+    for (const variant of ['anidb', 'anidb2', 'anidb3', 'anidb4']) {
+      expect(normalizeGuid(`com.plexapp.agents.hama://${variant}-11905`)).toBe('anidb://11905')
+    }
+    // `tsdb` is a typo inside HAMA itself.
+    expect(normalizeGuid('com.plexapp.agents.hama://tsdb-69346')).toBe('tmdb://69346')
+  })
+
+  it('restores the tt prefix HAMA strips, without doubling it elsewhere', () => {
+    expect(normalizeGuid('com.plexapp.agents.hama://imdb-6455986')).toBe('imdb://tt6455986')
+    expect(normalizeGuid('com.plexapp.agents.imdb://tt29768334?lang=en')).toBe('imdb://tt29768334')
+  })
+
+  it('degrades to no id rather than a wrong one', () => {
+    expect(idsFromPrefixedGuids([{ id: 'com.plexapp.agents.hama://foo-123' }])).toEqual({})
+    expect(idsFromPrefixedGuids([{ id: 'com.plexapp.agents.hama://tvdb-' }])).toEqual({})
+    expect(normalizeGuid('nonsense')).toBeNull()
+    expect(normalizeGuid('')).toBeNull()
+    expect(normalizeGuid(undefined)).toBeNull()
+  })
+
+  it('is idempotent', () => {
+    const once = normalizeGuid('com.plexapp.agents.hama://tvdb2-315500')
+    expect(normalizeGuid(once)).toBe(once)
+  })
+
+  it('extracts ids end to end and ignores Plex-internal GUIDs', () => {
+    expect(idsFromPrefixedGuids([{ id: 'com.plexapp.agents.thetvdb://468006?lang=en' }])).toEqual({
+      tvdb: '468006',
+    })
+    expect(idsFromPrefixedGuids([{ id: 'com.plexapp.agents.hama://imdb-6455986' }])).toEqual({
+      imdb: 'tt6455986',
+    })
+    expect(idsFromPrefixedGuids([{ id: 'com.plexapp.agents.hama://anidb2-11905' }])).toEqual({
+      anidb: 11905,
+    })
+    // HAMA episodes and seasons are `local://`; trailers are `iva://`. Neither carries an id.
+    expect(idsFromPrefixedGuids([{ id: 'local://60293' }])).toEqual({})
+    expect(
+      idsFromPrefixedGuids([{ id: 'iva://api.internetvideoarchive.com/2.0/x?lang=en' }]),
+    ).toEqual({})
   })
 })
 

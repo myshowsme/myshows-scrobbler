@@ -12,6 +12,9 @@ export interface MockPlexSession {
   duration: number
   viewOffset: number
   Guid?: Array<{ id: string }>
+  /** Scalar GUIDs used by retired metadata agents, which never send `Guid[]`. */
+  guid?: string
+  grandparentGuid?: string
   Player?: { state: string }
 }
 
@@ -73,6 +76,8 @@ export function startMockPlexServer(port: number): MockPlexServer {
               {
                 userRating: null,
                 Guid: match?.Guid ?? [],
+                guid: match?.guid,
+                grandparentGuid: match?.grandparentGuid,
               },
             ],
           },
