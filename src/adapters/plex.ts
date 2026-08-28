@@ -71,7 +71,6 @@ interface PlexSession {
    * used — `grandparentGuid` is the clean show id. See external-ids.normalizeGuid.
    */
   guid?: string
-  parentGuid?: string
   grandparentGuid?: string
   Media?: PlexMedia[]
   User?: { id: string; title: string }
@@ -89,7 +88,6 @@ interface PlexMetadataResponse {
       lastRatedAt?: number
       Guid?: PlexGuid[]
       guid?: string
-      parentGuid?: string
       grandparentGuid?: string
     }>
   }
@@ -340,7 +338,11 @@ export class PlexAdapter extends BaseAdapter {
             undefined,
             partFile,
           )
-          this.logResolvedIds(event)
+          // Metadata is cached per item, so ids stay the same across plain progress ticks —
+          // only log them again on a state transition, not on every viewOffset advance.
+          if (label !== 'progress') {
+            this.logResolvedIds(event)
+          }
           await this.emitScrobble(event)
         }
       }

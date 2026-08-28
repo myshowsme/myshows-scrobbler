@@ -76,6 +76,8 @@ export function startMockPlexServer(port: number): MockPlexServer {
               {
                 userRating: null,
                 Guid: match?.Guid ?? [],
+                guid: match?.guid,
+                grandparentGuid: match?.grandparentGuid,
               },
             ],
           },
