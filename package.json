@@ -1,6 +1,6 @@
 {
   "name": "myshows-scrobbler",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Universal media scrobbler for MyShows (Plex, Emby, Jellyfin, Kodi)",
   "keywords": [
     "emby",
@@ -68,7 +68,7 @@
     "concurrently": "10.0.3",
     "cross-env": "10.1.0",
     "electron": "43.2.0",
-    "electron-builder": "26.15.3",
+    "electron-builder": "26.16.1",
     "portless": "0.15.4",
     "sass": "1.101.3",
     "tsx": "4.23.1",
