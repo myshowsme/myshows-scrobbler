@@ -546,3 +546,45 @@ describe('EmbyAdapter session endpoint', () => {
     expect(requested[0]).toBe('http://localhost:8096/Sessions?ActiveWithinSeconds=60')
   })
 })
+
+describe('auth headers', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  async function headersFor(adapter: BaseAdapter): Promise<Record<string, string>[]> {
+    const seen: Record<string, string>[] = []
+    ;(adapter as unknown as { running: boolean }).running = true
+    vi.stubGlobal('fetch', ((_url: string, init?: RequestInit) => {
+      seen.push(init?.headers as Record<string, string>)
+      return Promise.resolve(sessionsResponse([]))
+    }) as typeof fetch)
+    await tick(adapter)
+    await tick(adapter)
+    return seen
+  }
+
+  it('Jellyfin sends the MediaBrowser Authorization scheme (legacy headers are 401 on 12)', async () => {
+    const adapter = new JellyfinAdapter(makeConfig('jellyfin'), {
+      onScrobble: async () => {},
+      onLog: () => {},
+    })
+    const seen = await headersFor(adapter)
+
+    expect(seen[0]?.Authorization).toMatch(/^MediaBrowser Client="[^"]+", .*Token="t"$/)
+    expect(seen[0]).not.toHaveProperty('X-MediaBrowser-Token')
+    expect(seen[0]).not.toHaveProperty('X-Emby-Token')
+    // Same DeviceId across polls, so the server doesn't register a new device each time.
+    expect(seen[1]?.Authorization).toBe(seen[0]?.Authorization)
+  })
+
+  it('Emby keeps X-Emby-Token', async () => {
+    const adapter = new EmbyAdapter(makeConfig('emby'), {
+      onScrobble: async () => {},
+      onLog: () => {},
+    })
+    const seen = await headersFor(adapter)
+
+    expect(seen[0]).toMatchObject({ 'X-Emby-Token': 't' })
+  })
+})

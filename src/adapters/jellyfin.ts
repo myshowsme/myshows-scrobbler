@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import type { SourceType, NormalizedEvent, PlaybackState, MediaInfo } from '../types.js'
 import { BaseAdapter } from './base.js'
 import { extractDubTeam } from '../utils/dub-team.js'
@@ -11,6 +13,7 @@ import {
 import { languageToIso } from '../utils/audio-track.js'
 import { percentFromPosition, ticksToMs, ticksToRuntimeMinutes } from './time.js'
 import { fetchWithTimeout } from '../http.js'
+import { buildMediaBrowserAuthHeader } from '../utils/mediabrowser-auth.js'
 import { applyUserFilter, type FilterableUser } from './user-filter.js'
 
 // ── Jellyfin / Emby shared API types ──
@@ -220,10 +223,13 @@ export class JellyfinAdapter extends BaseAdapter {
     return 'jellyfin'
   }
 
+  /** Stable per adapter, so the server shows one device instead of one per poll. */
+  private readonly deviceId = randomUUID()
+
   protected getHeaders(): Record<string, string> {
     return {
-      'X-MediaBrowser-Token': this.config.token,
-      'Accept': 'application/json',
+      Authorization: buildMediaBrowserAuthHeader(this.deviceId, this.config.token),
+      Accept: 'application/json',
     }
   }
 
